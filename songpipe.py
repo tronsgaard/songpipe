@@ -6,6 +6,9 @@ import astropy.io.fits as fits
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 
+"""
+HELPER FUNCTIONS
+"""
 def construct_filename(orig_filename, object=None, prepared=False, extracted=False, fiber=None,
                        prefix=None, suffix=None):
     """Construct a standardized filename based on the properties of the file"""
@@ -31,15 +34,14 @@ def construct_filename(orig_filename, object=None, prepared=False, extracted=Fal
 
 def header_insert(hdr, key, value=None, comment=''):
     """Keep the header organized by grouping all pipeline keywords in a section"""
-    if hdr is None:
-        return
-    PIPELINE_HEADER = ('---PL---', '----PIPELINE----', '-------------------------------------')
+    hdr = hdr.__copy__()
+    SECTION_HEADER = ('---PL---', '----PIPELINE----', '-------------------------------------')
     get_keys = lambda: list(hdr.keys())  # Get updated list of keys from header
     try:
-        start = get_keys().index(PIPELINE_HEADER[0])
+        start = get_keys().index(SECTION_HEADER[0])
     except ValueError:
-        hdr.set(*PIPELINE_HEADER)
-        start = get_keys().index(PIPELINE_HEADER[0])
+        hdr.set(*SECTION_HEADER)
+        start = get_keys().index(SECTION_HEADER[0])
     end = start
 
     # Determine end of section
@@ -53,6 +55,8 @@ def header_insert(hdr, key, value=None, comment=''):
 
     # Insert header key/value
     hdr.insert(end, (key, value, comment), after=True)
+    return hdr
+
 
 def apply_limit(array, limit):
     """SQL-like limit syntax"""
@@ -61,6 +65,9 @@ def apply_limit(array, limit):
     return array[slice(*limit)]
 
 
+"""
+METHODS FOR COMBINING IMAGES
+"""
 def median_combine(images):
     """Median combine a list of 2D images"""
     data = [im.data for im in tqdm(images)]
@@ -72,24 +79,32 @@ def mean_combine(images):
     return Image(data=np.mean(data, axis=0))
 
 
-class ImageBase:
-    def __init__(self):
-        self._header = None
-        self._data = None
-        self.filename = None
-        self.ext = None
-        self.bias_subtracted = False
-        self.dark_subtracted = False
-        self.oriented = False
-        self.gain_applied = False
+"""
+CLASS DEFINITIONS
+"""
+class Image:
+    """Represents a normal, single FITS image"""
 
-    @classmethod
-    def from_file(cls, filename, **kwargs):
-        raise NotImplementedError
+    def __init__(self, header=None, data=None, filename=None, ext=0):
+        super().__init__()
+        self._header = header
+        self._data = data
+        self.filename = filename
+        self.ext = ext
+
+        # Load header from file
+        if self._header is None and self._data is None:
+            with fits.open(filename) as h:
+                self._header=h[ext].header  # Don't load data yet
+
+        # Create empty header if necessary
+        if self._header is None:
+            self._header = fits.Header()
 
     @classmethod
     def combine(cls, images, combine_function):
-        raise NotImplementedError
+        """Combine a list of Images into one Image"""
+        return combine_function(images)  # Returns an image
 
     @property
     def header(self):
@@ -97,7 +112,10 @@ class ImageBase:
 
     @property
     def data(self):
-        raise NotImplementedError
+        """Return array of data"""
+        if self._data is None:
+            self.load_data()
+        return self._data
 
     @property
     def object(self):
@@ -111,9 +129,103 @@ class ImageBase:
     def type(self):
         return self.header['IMAGETYP']
 
-    def construct_filename(self, **kwargs):
-        return construct_filename(basename(self.header['FILE']), object=self.object, **kwargs)
+    @property
+    def bias_subtracted(self):
+        try:
+            return self.header['PL_BISUB']
+        except KeyError:
+            return False
 
+    @property
+    def dark_subtracted(self):
+        try:
+            return self.header['PL_DASUB']
+        except KeyError:
+            return False
+
+    @property
+    def gain_applied(self):
+        try:
+            return self.header['PL_GNAPL']
+        except KeyError:
+            return False
+
+    # Data handling
+    def load_data(self):
+        """Load data from file"""
+        if self.filename is not None:
+            print(f'Loading FITS data from "{self.filename}" (ext {self.ext})')
+            with fits.open(self.filename) as h:
+                self._data = h[self.ext].data
+
+    def clear_data(self):
+        """Clear cached data"""
+        self._data = None
+
+    def make_hdulist(self):
+        return fits.HDUList([fits.PrimaryHDU(data=self.data, header=self.header)])
+
+    def save_fits(self, out_filename, overwrite=False):
+        """Save image to a FITS file"""
+        hdu = self.make_hdulist()
+        print(f'Saving to {out_filename}...')
+        makedirs(dirname(out_filename), exist_ok=True)  # Ensure that output folder exists
+        hdu.writeto(out_filename, overwrite=overwrite)
+
+    # Transformations
+    def subtract_bias(self, bias, inplace=False):
+        """Subtract bias image"""
+        assert self.bias_subtracted is False
+        header = header_insert(self._header, 'PL_BISUB', True, 'Bias subtracted')
+        data = self.data - bias.data
+        if inplace:
+            self._data, self._header = data, header
+            self.filename = None
+        else:
+            return Image(header=header, data=data)
+
+    def subtract_dark(self, dark, inplace=False):
+        """Subtract dark image"""
+        assert self.bias_subtracted
+        assert self.dark_subtracted is False
+        data = self.data - dark.data
+        header = header_insert(self._header, 'PL_DASUB', True, 'Dark subtracted')
+        if inplace:
+            self._data, self._header = data, header
+            self.filename = None
+        else:
+            return Image(header=header, data=data)
+
+    def orient(self, flip_updown=False, flip_leftright=False, rotation=0, inplace=False):
+        """Orient the image by flipping, then rotating"""
+        data = self.data
+        if flip_updown:
+            data = np.flipud(data)
+        if flip_leftright:
+            data = np.fliplr(data)
+        if rotation != 0:
+            data = np.rot90(data, k=rotation//90)
+        header = header_insert(self._header, 'PL_ORIEN', True, 'Oriented')
+        if inplace:
+            self._data, self._header = data, header
+            self.filename = None
+        else:
+            return Image(header=header, data=data)
+
+    def apply_gain(self, gain_factor, inplace=False):
+        """Apply gain factor to convert from ADUs to electrons"""
+        assert self.bias_subtracted
+        assert self.dark_subtracted
+        assert self.gain_applied is False
+        data = self.data * gain_factor
+        header = header_insert(self._header, 'PL_GNAPL', True, 'Gain applied')
+        if inplace:
+            self._data, self._header = data, header
+            self.filename = None
+        else:
+            return Image(header=header, data=data)
+
+    # Plotting
     def show(self, ax=None, vmin=None, vmax=None):
         assert self.data is not None
         if ax is None:
@@ -130,142 +242,34 @@ class ImageBase:
             plt.sca(ax)
         plt.hist(self.data.flatten(), bins=bins, **kwargs)
 
-    def clear_data(self):
-        self._data = None
-
-    def make_hdulist(self):
-        raise NotImplementedError
-
-    def save_fits(self, out_filename, overwrite=False):
-        """Save image to a FITS file"""
-        hdu = self.make_hdulist()
-        print(f'Saving to {out_filename}...')
-        makedirs(dirname(out_filename), exist_ok=True)  # Ensure that output folder exists
-        hdu.writeto(out_filename, overwrite=overwrite)
-
-    # Transformations
-    def subtract_bias(self, bias):
-        raise NotImplementedError
-
-    def subtract_dark(self, dark):
-        raise NotImplementedError
-
-    def orient(self, rotation=0, flip_updown=False, flip_leftright=False):
-        raise NotImplementedError
-
-    def apply_gain(self, **kwargs):
-        raise NotImplementedError
-
-    def calculate_variance(self, **kwargs):
-        raise NotImplementedError
-
-    def __add__(self, other):
-        raise NotImplementedError
+    # Misc
+    def construct_filename(self, **kwargs):
+        return construct_filename(basename(self.header['FILE']), object=self.object, **kwargs)
 
 
-class Image(ImageBase):
-    def __init__(self, header=None, data=None, filename=None, ext=0,
-                 bias_subtracted=False, dark_subtracted=False):
-        super().__init__()
-        # Load image
-        self._header = header
-        self._data = data
-        self.filename = filename
-        self.ext = ext
-        # Get transformations from fits header
-        if self._header is not None:
-            self.bias_subtracted = self._header.get('PL_BISUB', bias_subtracted)
-            self.dark_subtracted = self._header.get('PL_DASUB', dark_subtracted)
-
-    @classmethod
-    def from_file(cls, filename, ext=0, load_data=False):
-        with fits.open(filename) as h:
-            hdu = h[ext]
-            if load_data:
-                print(f'Loading FITS data from "{filename}" (ext {ext})')
-                return cls(header=hdu.header, data=hdu.data, filename=filename, ext=ext)
-            else:
-                return cls(header=hdu.header, filename=filename, ext=ext)
-
-    @classmethod
-    def combine(cls, images, combine_function):
-        return combine_function(images)  # Returns an image
-
-    @property
-    def data(self):
-        if self._data is not None:
-            return self._data
-        if self.filename is not None:
-            with fits.open(self.filename) as h:
-                print(f'Loading FITS data from "{self.filename}" (ext {self.ext})')
-                self._data = h[self.ext].data
-                return self._data
-
-    def make_hdulist(self):
-        return fits.HDUList([fits.PrimaryHDU(data=self.data, header=self.header)])
-
-    # Transformations
-    def subtract_bias(self, bias):
-        assert self.bias_subtracted is False
-        self._data = self.data - bias.data
-        header_insert(self._header, 'PL_BISUB', True, 'Bias subtracted')
-        self.bias_subtracted = True
-
-    def subtract_dark(self, dark):
-        assert self.bias_subtracted
-        assert self.dark_subtracted is False
-        self._data = self.data - dark.data
-        header_insert(self._header, 'PL_DASUB', True, 'Dark subtracted')
-        self.dark_subtracted = True
-
-    def orient(self, rotation=0, flip_updown=False, flip_leftright=False):
-        if flip_updown:
-            self._data = np.flipud(self.data)
-        if flip_leftright:
-            self._data = np.fliplr(self.data)
-        if rotation != 0:
-            self._data = np.rot90(self.data, k=rotation//90)
-        header_insert(self._header, 'PL_ORIEN', True, 'Oriented')
-        self.oriented = True
-
-    def apply_gain(self, gain_factor):
-        assert self.bias_subtracted
-        assert self.dark_subtracted
-        assert self.gain_applied is False
-        self._data *= gain_factor
-        self.gain_applied = True
-
-    def calculate_variance(self, **kwargs):
-        raise NotImplementedError
-
-    def __add__(self, other):
-        data = self.data + other.data
-        return Image(data=data)
-
-
-class HighLowImage(ImageBase):
-    def __init__(self, high_gain_image, low_gain_image, filename=None):
-        super().__init__()
+class HighLowImage(Image):
+    def __init__(self, high_gain_image=None, low_gain_image=None, filename=None):
         self.high_gain_image = high_gain_image
         self.low_gain_image = low_gain_image
         self.filename = filename
-        self.bias_subtracted = self.high_gain_image.bias_subtracted
-        self.dark_subtracted = self.high_gain_image.dark_subtracted
+        self.ext = None
+        self._data = None
+        self._header = None
 
-    @classmethod
-    def from_file(cls, filename):
-        # Load image
-        high_gain_image = Image.from_file(filename=filename, ext=0)
-        low_gain_image  = Image.from_file(filename=filename, ext=1)
-        return cls(high_gain_image, low_gain_image, filename=filename)
+        # Load from file
+        if self.high_gain_image is None and self.low_gain_image is None:
+            self.high_gain_image = Image(filename=filename, ext=0)
+            self.low_gain_image  = Image(filename=filename, ext=1)
 
     @classmethod
     def combine(cls, images, combine_function):
+        """Combine a list of HiglLowImages into one HighLowImage"""
         high_gain_image = combine_function([im.high_gain_image for im in images])
         low_gain_image = combine_function([im.high_gain_image for im in images])
         return HighLowImage(high_gain_image, low_gain_image)  # Return a HighLowImage
 
-    def _dual_plot(self, func_high, func_low, **kwargs):
+    @staticmethod
+    def _dual_plot(func_high, func_low, **kwargs):
         fig, ax = plt.subplots(ncols=2)
         fig.set_size_inches(12,5)
         plt.sca(ax[0])
@@ -281,6 +285,10 @@ class HighLowImage(ImageBase):
     def hist(self, **kwargs):
         self._dual_plot(self.high_gain_image.hist, self.low_gain_image.hist, **kwargs)
 
+    # Data handling
+    def load_data(self):
+        pass
+
     def clear_data(self):
         self.high_gain_image.clear_data()
         self.low_gain_image.clear_data()
@@ -295,36 +303,41 @@ class HighLowImage(ImageBase):
     def header(self):
         return self.high_gain_image.header
 
-    # Transformations
-    def subtract_bias(self, bias):
-        assert self.bias_subtracted is False
-        self.high_gain_image.subtract_bias(bias.high_gain_image)
-        self.low_gain_image.subtract_bias(bias.low_gain_image)
-        self.bias_subtracted = True
+    @property
+    def data(self):
+        raise NotImplementedError
 
-    def subtract_dark(self, dark):
+    # Transformations
+    def subtract_bias(self, bias, inplace=False):
+        assert self.bias_subtracted is False
+        high_gain_image = self.high_gain_image.subtract_bias(bias.high_gain_image, inplace=inplace)
+        low_gain_image = self.low_gain_image.subtract_bias(bias.low_gain_image, inplace=inplace)
+        if inplace is False:
+            return HighLowImage(high_gain_image=high_gain_image, low_gain_image=low_gain_image)
+
+    def subtract_dark(self, dark, inplace=False):
         assert self.bias_subtracted
         assert self.dark_subtracted is False
-        self.high_gain_image.subtract_dark(dark.high_gain_image)
-        self.low_gain_image.subtract_dark(dark.low_gain_image)
-        self.dark_subtracted = True
+        high_gain_image = self.high_gain_image.subtract_dark(dark.high_gain_image, inplace=inplace)
+        low_gain_image = self.low_gain_image.subtract_dark(dark.low_gain_image, inplace=inplace)
+        if inplace is False:
+            return HighLowImage(high_gain_image=high_gain_image, low_gain_image=low_gain_image)
 
-    def apply_gain(self, gain_high=0.78, gain_low=15.64):
+    def apply_gain(self, gain_high=0.78, gain_low=15.64, inplace=False):
         # electrons/ADU for HIGHGAIN and LOWGAIN image, respectively: [0.78, 15.64]
         assert self.bias_subtracted
         assert self.dark_subtracted
         assert self.gain_applied is False
-        self.high_gain_image.apply_gain(gain_high)
-        self.low_gain_image.apply_gain(gain_low)
-        self.gain_applied = True
+        high_gain_image = self.high_gain_image.apply_gain(gain_high, inplace=inplace)
+        low_gain_image = self.low_gain_image.apply_gain(gain_low, inplace=inplace)
+        if inplace is False:
+            return HighLowImage(high_gain_image=high_gain_image, low_gain_image=low_gain_image)
 
-    def orient(self, rotation=0, flip_updown=False, flip_leftright=False):
-        self.high_gain_image.orient(rotation=rotation, flip_updown=flip_updown, flip_leftright=flip_leftright)
-        self.low_gain_image.orient(rotation=rotation, flip_updown=flip_updown, flip_leftright=flip_leftright)
-        self.oriented = True
-
-    def calculate_variance(self):
-        raise NotImplementedError
+    def orient(self, flip_updown=False, flip_leftright=False, rotation=0, inplace=False):
+        high_gain_image = self.high_gain_image.orient(rotation=rotation, flip_updown=flip_updown, flip_leftright=flip_leftright)
+        low_gain_image = self.low_gain_image.orient(rotation=rotation, flip_updown=flip_updown, flip_leftright=flip_leftright)
+        if inplace is False:
+            return HighLowImage(high_gain_image=high_gain_image, low_gain_image=low_gain_image)
 
     def merge_high_low(self, threshold=3000):
         assert self.bias_subtracted
@@ -339,11 +352,6 @@ class HighLowImage(ImageBase):
         merged[mask] = low_gain_data[mask]
 
         return Image(data=merged, header=self.header)
-
-    def __add__(self, other):
-        high = self.high_gain_image + other.high_gain_image
-        low = self.low_gain_image + other.low_gain_image
-        return HighLowImage(high, low)
 
 
 class ImageList():
@@ -361,7 +369,7 @@ class ImageList():
     @classmethod
     def from_files(cls, files, image_class=Image, limit=None):
         files = apply_limit(files, limit)
-        images = [image_class.from_file(f) for f in tqdm(files)]
+        images = [image_class(filename=f) for f in tqdm(files)]
         return ImageList(images)
 
     @classmethod
