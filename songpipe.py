@@ -68,10 +68,43 @@ def apply_limit(array, limit):
 """
 METHODS FOR COMBINING IMAGES
 """
-def median_combine(images):
+def median_combine(images, nallocate=10):
     """Median combine a list of 2D images"""
-    data = [im.data for im in tqdm(images)]
-    return Image(data=np.median(data, axis=0))
+
+    # Open all files
+    for im in images:
+        im.open_file(memmap=True)
+
+    # Configure stripes
+    height, width = im.shape  # Image dimension
+    n = len(images)
+    stripeheight = height // n * nallocate  # Allocate memory corresponding to `nallocate` frames
+    nstripes = np.ceil(height/stripeheight)
+    result = np.zeros((height, width))
+
+    # Loop over stripes
+    t = tqdm(total=n*nstripes)
+    for k in range(0, height, stripeheight):
+        start = k
+        stop = min(k + stripeheight, height)
+
+        # Loop over images
+        x = np.zeros((n, stop - start, width))
+        for i, im in tqdm(enumerate(images), leave=False, unit_scale=True):
+            h = im.file_handle
+            x[i] = h[0].data[start:stop, :]
+            t.update()  # Progress bar
+        result[start:stop, :] = np.median(x, axis=0)
+
+    t.close()  # Progress bar
+
+    # Close all files
+    for im in images:
+        im.close_file()
+
+    header = fits.Header()
+    header = header_insert(header, key='EXPTIME', value=np.median([im.exptime for im in images]))
+    return Image(data=result, header=header)
 
 def mean_combine(images):
     """Mean combine a list of 2D images"""
@@ -91,6 +124,7 @@ class Image:
         self._data = data
         self.filename = filename
         self.ext = ext
+        self.file_handle = None
 
         # Load header from file
         if self._header is None and self._data is None:
@@ -102,9 +136,9 @@ class Image:
             self._header = fits.Header()
 
     @classmethod
-    def combine(cls, images, combine_function):
+    def combine(cls, images, combine_function, **kwargs):
         """Combine a list of Images into one Image"""
-        return combine_function(images)  # Returns an image
+        return combine_function(images, **kwargs)  # Returns an image
 
     @property
     def header(self):
@@ -116,6 +150,11 @@ class Image:
         if self._data is None:
             self.load_data()
         return self._data
+
+    @property
+    def shape(self):
+        """Return the shape of the data array"""
+        return (self.header['NAXIS1'], self.header['NAXIS2'])
 
     @property
     def object(self):
@@ -153,24 +192,40 @@ class Image:
     # Data handling
     def load_data(self):
         """Load data from file"""
+        print(f'Loading FITS data from "{self.filename}" (ext {self.ext})')
+        self.open_file()
+        self._data = self.file_handle[self.ext].data
+        self.close_file()
+
+    def open_file(self, memmap=False):
+        """Open a file handle """
         if self.filename is not None:
-            print(f'Loading FITS data from "{self.filename}" (ext {self.ext})')
-            with fits.open(self.filename) as h:
-                self._data = h[self.ext].data
+            self.file_handle = fits.open(self.filename, memmap=memmap)
+            return self.file_handle
+        else:
+            raise ValueError('No such file!')
+
+    def close_file(self):
+        """Close open file handle"""
+        try:
+            self.file_handle.close()
+        except AttributeError:
+            pass
 
     def clear_data(self):
         """Clear cached data"""
         self._data = None
 
-    def make_hdulist(self):
-        return fits.HDUList([fits.PrimaryHDU(data=self.data, header=self.header)])
+    def make_hdulist(self, dtype=None):
+        """Produce a HDULIst for saving files"""
+        return fits.HDUList([fits.PrimaryHDU(data=self.data.astype(dtype), header=self.header)])
 
-    def save_fits(self, out_filename, overwrite=False):
+    def save_fits(self, out_filename, overwrite=False, dtype=None):
         """Save image to a FITS file"""
-        hdu = self.make_hdulist()
+        hdulist = self.make_hdulist(dtype=dtype)
         print(f'Saving to {out_filename}...')
         makedirs(dirname(out_filename), exist_ok=True)  # Ensure that output folder exists
-        hdu.writeto(out_filename, overwrite=overwrite)
+        hdulist.writeto(out_filename, overwrite=overwrite)
 
     # Transformations
     def subtract_bias(self, bias, inplace=False):
@@ -215,7 +270,7 @@ class Image:
     def apply_gain(self, gain_factor, inplace=False):
         """Apply gain factor to convert from ADUs to electrons"""
         assert self.bias_subtracted
-        assert self.dark_subtracted
+        #assert self.dark_subtracted
         assert self.gain_applied is False
         data = self.data * gain_factor
         header = header_insert(self._header, 'PL_GNAPL', True, 'Gain applied')
@@ -249,10 +304,14 @@ class Image:
 
 class HighLowImage(Image):
     def __init__(self, high_gain_image=None, low_gain_image=None, filename=None):
+        if high_gain_image is not None or low_gain_image is not None:
+            assert isinstance(high_gain_image, Image)
+            assert isinstance(low_gain_image, Image)
         self.high_gain_image = high_gain_image
         self.low_gain_image = low_gain_image
         self.filename = filename
         self.ext = None
+        self.file_handle = None
         self._data = None
         self._header = None
 
@@ -263,7 +322,7 @@ class HighLowImage(Image):
 
     @classmethod
     def combine(cls, images, combine_function):
-        """Combine a list of HiglLowImages into one HighLowImage"""
+        """Combine a list of HighLowImages into one HighLowImage"""
         high_gain_image = combine_function([im.high_gain_image for im in images])
         low_gain_image = combine_function([im.high_gain_image for im in images])
         return HighLowImage(high_gain_image, low_gain_image)  # Return a HighLowImage
@@ -287,16 +346,17 @@ class HighLowImage(Image):
 
     # Data handling
     def load_data(self):
-        pass
+        self.high_gain_image.load_data()
+        self.low_gain_image.load_data()
 
     def clear_data(self):
         self.high_gain_image.clear_data()
         self.low_gain_image.clear_data()
 
-    def make_hdulist(self):
+    def make_hdulist(self, dtype=None):
         return fits.HDUList([
-            fits.PrimaryHDU(data=self.high_gain_image.data, header=self.high_gain_image.header),
-            fits.ImageHDU(data=self.high_gain_image.data, header=self.high_gain_image.header),
+            fits.PrimaryHDU(data=self.high_gain_image.data.astype(dtype), header=self.high_gain_image.header),
+            fits.ImageHDU(data=self.high_gain_image.data.astype(dtype), header=self.high_gain_image.header),
         ])
 
     @property
@@ -326,7 +386,7 @@ class HighLowImage(Image):
     def apply_gain(self, gain_high=0.78, gain_low=15.64, inplace=False):
         # electrons/ADU for HIGHGAIN and LOWGAIN image, respectively: [0.78, 15.64]
         assert self.bias_subtracted
-        assert self.dark_subtracted
+        #assert self.dark_subtracted
         assert self.gain_applied is False
         high_gain_image = self.high_gain_image.apply_gain(gain_high, inplace=inplace)
         low_gain_image = self.low_gain_image.apply_gain(gain_low, inplace=inplace)
@@ -341,7 +401,7 @@ class HighLowImage(Image):
 
     def merge_high_low(self, threshold=3000):
         assert self.bias_subtracted
-        assert self.dark_subtracted
+        #assert self.dark_subtracted
         assert self.gain_applied
 
         high_gain_data = self.high_gain_image.data
@@ -448,7 +508,7 @@ class ImageList():
         # Return new ImageList
         return ImageList(images)
 
-    def combine(self, method='median'):
+    def combine(self, method='median', **kwargs):
         print(f'Combining {len(self)} images using method "{method}".')
         if method == 'median':
             combine_function = median_combine
@@ -456,6 +516,6 @@ class ImageList():
             combine_function = mean_combine
         else:
             raise ValueError(f'Unknown method "{method}"!')
-        result = self.image_class.combine(self.images, combine_function)
+        result = self.image_class.combine(self.images, combine_function, **kwargs)
         print('Combine done!')
         return result
