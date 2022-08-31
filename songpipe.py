@@ -441,6 +441,9 @@ class ImageList():
         """Provides len() compatibility"""
         return len(self.images)
 
+    def __iter__(self):
+        return self.images.__iter__()
+
     def list(self):
         """Print a pretty list of filenames and some fits keywords"""
         if len(self) == 0:

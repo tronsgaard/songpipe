@@ -83,7 +83,7 @@ for im_orig in loop_images:
         merged.orient(flip_updown=True, rotation=270)
 
         # Save image
-        merged.save_fits(out_filename, overwrite=True)
+        merged.save_fits(out_filename, overwrite=True, dtype='float32')  # FIXME: Maybe change dtype to float64
 
         # Append to list
         prep_images.append(merged)
