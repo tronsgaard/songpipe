@@ -226,6 +226,7 @@ class Image:
         print(f'Saving to {out_filename}...')
         makedirs(dirname(out_filename), exist_ok=True)  # Ensure that output folder exists
         hdulist.writeto(out_filename, overwrite=overwrite)
+        self.filename = out_filename
 
     # Transformations
     def subtract_bias(self, bias, inplace=False):
