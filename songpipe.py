@@ -496,32 +496,51 @@ class ImageList():
         else:
             raise KeyError(f'No such filename in list: {item}')
 
-    def list(self):
-        """Print a pretty list of filenames and some fits keywords"""
+    def list(self, add_keys=None):
+        """
+        Print a pretty list of filenames and some fits keywords.
+        Add list of keys by using add_keys=['KEY1', 'KEY2', ...]
+        """
         if len(self) == 0:
             return
 
-        buffer = []
+        if isinstance(add_keys, str):
+            add_keys = [add_keys]
+        elif add_keys is None:
+            add_keys = []
+
+        buffer = []  # To be filled with all data before printing
         widths = {}  # Column widths
         for im in self.images:
-            d = {}
+            d = {}  # Dictionary of data for this image
             if im.filename is not None:
                 d['filename'] = basename(im.filename)
             else:
                 d['filename'] = ''
             d['image_type'] = im.type
+            d['mode'] = im.mode
             d['exptime'] = im.exptime
+            # Display additional keywords
+            for k in add_keys:
+                try:
+                    d[k] = im.header[k]
+                except KeyError:
+                    d[k] = ''
+            # Display object last
             d['object'] = im.object
+            # Append row to buffer
             buffer.append(d)
-            # Update column widths
+            # Update dict of column widths
             for k in d.keys():
                 widths[k] = max((len(str(d[k])), widths.get(k, 0),))
-        # Define format string
-        fmt = '  '.join([f'{{{k}:<{w}}}' for k, w in widths.items()])
-        # Print headers
+        # Define headers and update widths
         headers = {k: k.title() for k in widths.keys()}
         headers['image_type'] = 'Type'
         headers['exptime'] = 'Exp'
+        widths = {k:max((len(headers[k]), w)) for k,w in widths.items()}
+        # Define format string
+        fmt = '  '.join([f'{{{k}:<{w}}}' for k, w in widths.items()])
+        # Print headers
         print(fmt.format(**headers))
         # Print table rows
         for d in buffer:
