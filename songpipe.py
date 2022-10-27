@@ -440,12 +440,31 @@ class ImageList():
     def from_filemask(cls, filemask, image_class=Image, limit=None):
         return cls.from_files(glob(filemask), image_class=image_class, limit=limit)
 
+    @property
+    def files(self):
+        return [im.filename for im in self.images]
+
     def __len__(self):
         """Provides len() compatibility"""
         return len(self.images)
 
     def __iter__(self):
         return self.images.__iter__()
+
+    def __getitem__(self, item):
+        try:
+            return self.images.__getitem__(int(item))
+        except ValueError:
+            # If the int() cast fails
+            pass
+        # Get item by filename
+        result = self.filter(filename_contains=item)
+        if len(result) == 1:
+            return result[0]
+        elif len(result) > 1:
+            raise KeyError(f'Multiple files matching: "{item}"')
+        else:
+            raise KeyError(f'No such filename in list: {item}')
 
     def list(self):
         """Print a pretty list of filenames and some fits keywords"""
@@ -493,13 +512,20 @@ class ImageList():
         exptimes = exptimes[exptimes > threshold]
         return exptimes.tolist()
 
-    def filter(self, object_contains=None, object_exact=None, image_type=None, exptime=None, limit=None):
+    def filter(self, object_contains=None, object_exact=None, filename_contains=None, filename_exact=None,
+               image_type=None, exptime=None, limit=None):
         mask = [True]*len(self)
         for k, im in enumerate(self.images):
             if object_contains is not None and object_contains not in im.object:
                 mask[k] = False
                 continue
             if object_exact is not None and object_exact != im.object:
+                mask[k] = False
+                continue
+            if filename_contains is not None and (im.filename is None or filename_contains not in im.filename):
+                mask[k] = False
+                continue
+            if filename_exact is not None and (im.filename is None or filename_exact != im.filename):
                 mask[k] = False
                 continue
             if image_type is not None and image_type != im.type:
