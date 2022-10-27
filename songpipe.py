@@ -177,6 +177,26 @@ class Image:
         return self.header['IMAGETYP']
 
     @property
+    def mode(self):
+        """Returns the instrument mode, currently (MtKent): F1, F2, or F12, SLIT, DARK, UNKNOWN"""
+        if self.type in ('DARK', 'BIAS'):
+            return 'DARK'
+        if self.type == 'FLAT' and self.header['LIGHTP'] == 1:
+            return 'SLIT'
+        if self.type in ('FLAT', 'FLATI2', 'THAR', 'FP'):
+            # Check telescope shutters
+            tel1 = self.header['TEL1_S']
+            tel2 = self.header['TEL2_S']
+            if tel1 == 1 and tel2 == 1:
+                return 'F12'
+            if tel1 == 1:
+                return 'F1'
+            if tel2 == 1:
+                return 'F2'
+        # In any other case (including all observations):
+        return 'UNKNOWN'  # FIXME: Figure out a way to detect if there is light in both fibres
+
+    @property
     def bias_subtracted(self):
         try:
             return self.header['PL_BISUB']
