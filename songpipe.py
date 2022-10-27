@@ -9,6 +9,8 @@ from tqdm import tqdm
 """
 HELPER FUNCTIONS
 """
+
+
 def construct_filename(orig_filename, object=None, prepared=False, extracted=False, fiber=None,
                        prefix=None, suffix=None):
     """Construct a standardized filename based on the properties of the file"""
@@ -48,7 +50,7 @@ def header_insert(hdr, key, value=None, comment=''):
     in_section = True
     keys = get_keys()
     while in_section is True:
-        if end+1 >= len(keys) or keys[end+1][0] == '-' or keys[end+1] == 'COMMENT':
+        if end + 1 >= len(keys) or keys[end + 1][0] == '-' or keys[end + 1] == 'COMMENT':
             in_section = False
         else:
             end += 1
@@ -83,7 +85,7 @@ def median_combine(images, nallocate=10):
     result = np.zeros((height, width))
 
     # Loop over stripes
-    t = tqdm(total=n*nstripes)
+    t = tqdm(total=n * nstripes)
     for k in range(0, height, stripeheight):
         start = k
         stop = min(k + stripeheight, height)
@@ -106,6 +108,7 @@ def median_combine(images, nallocate=10):
     header = header_insert(header, key='EXPTIME', value=np.median([im.exptime for im in images]))
     return Image(data=result, header=header)
 
+
 def mean_combine(images):
     """Mean combine a list of 2D images"""
     data = [im.data for im in tqdm(images)]
@@ -115,6 +118,8 @@ def mean_combine(images):
 """
 CLASS DEFINITIONS
 """
+
+
 class Image:
     """Represents a normal, single FITS image"""
 
@@ -129,7 +134,7 @@ class Image:
         # Load header from file
         if self._header is None and self._data is None:
             with fits.open(filename) as h:
-                self._header=h[ext].header  # Don't load data yet
+                self._header = h[ext].header  # Don't load data yet
 
         # Create empty header if necessary
         if self._header is None:
@@ -260,7 +265,7 @@ class Image:
         if flip_leftright:
             data = np.fliplr(data)
         if rotation != 0:
-            data = np.rot90(data, k=rotation//90)
+            data = np.rot90(data, k=rotation // 90)
         header = header_insert(self._header, 'PL_ORIEN', True, 'Oriented')
         if inplace:
             self._data, self._header = data, header
@@ -271,7 +276,7 @@ class Image:
     def apply_gain(self, gain_factor, inplace=False):
         """Apply gain factor to convert from ADUs to electrons"""
         assert self.bias_subtracted
-        #assert self.dark_subtracted
+        # assert self.dark_subtracted
         assert self.gain_applied is False
         data = self.data * gain_factor
         header = header_insert(self._header, 'PL_GNAPL', True, 'Gain applied')
@@ -285,7 +290,7 @@ class Image:
     def show(self, ax=None, vmin=None, vmax=None, xmin=None, xmax=None, ymin=None, ymax=None):
         assert self.data is not None
         if ax is None:
-            plt.figure(figsize=(7,5))
+            plt.figure(figsize=(7, 5))
         else:
             plt.sca(ax)
         plt.imshow(self.data, vmin=vmin, vmax=vmax)
@@ -296,7 +301,7 @@ class Image:
     def hist(self, ax=None, bins=100, **kwargs):
         assert self.data is not None
         if ax is None:
-            plt.figure(figsize=(7,5))
+            plt.figure(figsize=(7, 5))
         else:
             plt.sca(ax)
         plt.hist(self.data.flatten(), bins=bins, **kwargs)
@@ -322,7 +327,7 @@ class HighLowImage(Image):
         # Load from file
         if self.high_gain_image is None and self.low_gain_image is None:
             self.high_gain_image = Image(filename=filename, ext=0)
-            self.low_gain_image  = Image(filename=filename, ext=1)
+            self.low_gain_image = Image(filename=filename, ext=1)
 
     @classmethod
     def combine(cls, images, combine_function):
@@ -334,7 +339,7 @@ class HighLowImage(Image):
     @staticmethod
     def _dual_plot(func_high, func_low, **kwargs):
         fig, ax = plt.subplots(ncols=2)
-        fig.set_size_inches(12,5)
+        fig.set_size_inches(12, 5)
         plt.sca(ax[0])
         func_high(ax=ax[0], **kwargs)
         plt.title('High gain')
@@ -390,7 +395,7 @@ class HighLowImage(Image):
     def apply_gain(self, gain_high=0.78, gain_low=15.64, inplace=False):
         # electrons/ADU for HIGHGAIN and LOWGAIN image, respectively: [0.78, 15.64]
         assert self.bias_subtracted
-        #assert self.dark_subtracted
+        # assert self.dark_subtracted
         assert self.gain_applied is False
         high_gain_image = self.high_gain_image.apply_gain(gain_high, inplace=inplace)
         low_gain_image = self.low_gain_image.apply_gain(gain_low, inplace=inplace)
@@ -405,7 +410,7 @@ class HighLowImage(Image):
 
     def merge_high_low(self, threshold=3000):
         assert self.bias_subtracted
-        #assert self.dark_subtracted
+        # assert self.dark_subtracted
         assert self.gain_applied
 
         high_gain_data = self.high_gain_image.data
@@ -487,9 +492,9 @@ class ImageList():
             for k in d.keys():
                 widths[k] = max((len(str(d[k])), widths.get(k, 0),))
         # Define format string
-        fmt = '  '.join([f'{{{k}:<{w}}}' for k,w in widths.items()])
+        fmt = '  '.join([f'{{{k}:<{w}}}' for k, w in widths.items()])
         # Print headers
-        headers = {k:k.title() for k in widths.keys()}
+        headers = {k: k.title() for k in widths.keys()}
         headers['image_type'] = 'Type'
         headers['exptime'] = 'Exp'
         print(fmt.format(**headers))
@@ -503,7 +508,7 @@ class ImageList():
         for im in self.images:
             count[im.type] = count.get(im.type, 0) + 1
 
-        for k,n in count.items():
+        for k, n in count.items():
             print(k, n)
 
     def get_exptimes(self, threshold=0.1):
@@ -514,7 +519,7 @@ class ImageList():
 
     def filter(self, object_contains=None, object_exact=None, filename_contains=None, filename_exact=None,
                image_type=None, exptime=None, limit=None):
-        mask = [True]*len(self)
+        mask = [True] * len(self)
         for k, im in enumerate(self.images):
             if object_contains is not None and object_contains not in im.object:
                 mask[k] = False
