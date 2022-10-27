@@ -282,13 +282,16 @@ class Image:
             return Image(header=header, data=data)
 
     # Plotting
-    def show(self, ax=None, vmin=None, vmax=None):
+    def show(self, ax=None, vmin=None, vmax=None, xmin=None, xmax=None, ymin=None, ymax=None):
         assert self.data is not None
         if ax is None:
             plt.figure(figsize=(7,5))
         else:
             plt.sca(ax)
         plt.imshow(self.data, vmin=vmin, vmax=vmax)
+        plt.gca().invert_yaxis()
+        plt.xlim((xmin, xmax))
+        plt.ylim((ymin, ymax))
 
     def hist(self, ax=None, bins=100, **kwargs):
         assert self.data is not None
