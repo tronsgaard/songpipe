@@ -70,7 +70,9 @@ def apply_limit(array, limit):
 """
 METHODS FOR COMBINING IMAGES
 """
-def median_combine(images, nallocate=10):
+
+
+def median_combine(images, nallocate=10, verbose=True):
     """Median combine a list of 2D images"""
 
     # Open all files
@@ -81,7 +83,8 @@ def median_combine(images, nallocate=10):
     height, width = im.shape  # Image dimension
     n = len(images)
     stripeheight = height // n * nallocate  # Allocate memory corresponding to `nallocate` frames
-    nstripes = np.ceil(height/stripeheight)
+    nstripes = int(np.ceil(height / stripeheight))
+    print(f'Median combine: Stripe height = {stripeheight} px ({nstripes} stripes)')
     result = np.zeros((height, width))
 
     # Loop over stripes
@@ -332,7 +335,9 @@ class HighLowImage(Image):
     @classmethod
     def combine(cls, images, combine_function):
         """Combine a list of HighLowImages into one HighLowImage"""
+        print('Combining high gain images...')
         high_gain_image = combine_function([im.high_gain_image for im in images])
+        print('Combining low gain images...')
         low_gain_image = combine_function([im.high_gain_image for im in images])
         return HighLowImage(high_gain_image, low_gain_image)  # Return a HighLowImage
 
