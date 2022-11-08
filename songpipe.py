@@ -584,7 +584,7 @@ class ImageList():
         return exptimes.tolist()
 
     def filter(self, object_contains=None, object_exact=None, filename_contains=None, filename_exact=None,
-               image_type=None, exptime=None, limit=None):
+               image_type=None, mode=None, exptime=None, limit=None):
         mask = [True] * len(self)
         for k, im in enumerate(self.images):
             if object_contains is not None and object_contains not in im.object:
@@ -600,6 +600,9 @@ class ImageList():
                 mask[k] = False
                 continue
             if image_type is not None and image_type != im.type:
+                mask[k] = False
+                continue
+            if mode is not None and mode != im.mode:
                 mask[k] = False
                 continue
             if exptime is not None and exptime != im.exptime:
