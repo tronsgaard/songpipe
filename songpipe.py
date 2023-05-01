@@ -605,9 +605,12 @@ class ImageList():
                 if im.type not in image_type:
                     mask[k] = False
                     continue
-            if mode is not None and mode != im.mode:
-                mask[k] = False
-                continue
+            if mode is not None:
+                if isinstance(mode, str) or not hasattr(mode, '__iter__'):
+                    mode = [mode]
+                if im.mode not in mode:
+                    mask[k] = False
+                    continue
             if exptime is not None and exptime != im.exptime:
                 mask[k] = False
                 continue
