@@ -599,9 +599,12 @@ class ImageList():
             if filename_exact is not None and (im.filename is None or filename_exact != im.filename):
                 mask[k] = False
                 continue
-            if image_type is not None and image_type != im.type:
-                mask[k] = False
-                continue
+            if image_type is not None:
+                if isinstance(image_type, str) or not hasattr(image_type, '__iter__'):
+                    image_type = [image_type]
+                if im.type not in image_type:
+                    mask[k] = False
+                    continue
             if mode is not None and mode != im.mode:
                 mask[k] = False
                 continue
