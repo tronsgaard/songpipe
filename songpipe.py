@@ -1,10 +1,11 @@
-from os.path import basename, splitext, dirname, exists
+from os.path import basename, splitext, dirname, exists, join
 from os import makedirs
 from glob import glob
 import numpy as np
 import astropy.io.fits as fits
 import matplotlib.pyplot as plt
 from tqdm import tqdm
+from pyreduce.reduce import ScienceExtraction
 
 """
 HELPER FUNCTIONS
@@ -143,6 +144,27 @@ def plot_order_trace(flat, orders, column_range, savename=None):
 """
 CLASS DEFINITIONS
 """
+
+class CustomScienceExtraction(ScienceExtraction):
+    """Modified version of PyReduce class, allowing the output filename to be changed"""
+    def science_file(self, name):
+        """Name of the science file in disk, based on the input file
+
+        Parameters
+        ----------
+        name : str
+            name of the observation file
+
+        Returns
+        -------
+        name : str
+            science file name
+        """
+        orig_filename = basename(name)
+        orig_filename, orig_ext = splitext(orig_filename)
+        orig_filename = orig_filename.replace('_prep', '')
+        new_filename = construct_filename(orig_filename, extracted=True)
+        return join(self.output_dir, new_filename)
 
 
 class Image:

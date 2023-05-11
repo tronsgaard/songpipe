@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import sys
-from os.path import join, exists, relpath, splitext
+from os.path import join, exists, relpath, splitext, basename
 from glob import glob
 import argparse
 import numpy as np
@@ -152,8 +152,9 @@ def run():
     import pyreduce
     from pyreduce.configuration import get_configuration_for_instrument
     from pyreduce.instruments.common import create_custom_instrument
-    from pyreduce.reduce import Flat, OrderTracing, BackgroundScatter, ScienceExtraction, NormalizeFlatField
+    from pyreduce.reduce import Flat, OrderTracing, BackgroundScatter, NormalizeFlatField
     from pyreduce.util import start_logging
+    from songpipe import CustomScienceExtraction  # Modified version
 
     print(f'Setting up PyReduce (version {pyreduce.__version__})')
 
@@ -237,16 +238,29 @@ def run():
         images_to_extract = prep_images.filter(mode=modes_to_extract, image_type=types_to_extract)
         images_to_extract.list()
         print('------------------------')
+        if len(images_to_extract) == 0:
+            print('No images to extract in mode {mode}.')
+            print('------------------------')
+            continue
+
         print(f'Extracting {len(images_to_extract)} frames in mode {mode}...')
 
         files = images_to_extract.filter(mode=mode)
         files.list()
         target = None
 
-        step_science = ScienceExtraction(instrument, mode, target, opts.datestr, opts.outdir, order_range, **config['science'])
-
+        step_science = CustomScienceExtraction(instrument, mode, target, opts.datestr, opts.outdir, order_range,
+                                               **config['science'])
         for f in files:
-            step_science.run([f], None, (orders, column_range), (norm, blaze), curvature, mask)
+            print(f'Working on file: {basename(f.filename)}')
+            outfile = step_science.science_file(f.filename)
+            if exists(outfile):
+                print(f'Extracted spectrum already exists: {relpath(outfile, opts.outdir)}')
+                print('Skipping...')
+            else:
+                heads, specs, sigmas, columns = step_science.run([f.filename], None, (orders, column_range),
+                                                                 (norm, blaze), curvature, mask)
+                # TODO: Generate diagnostic plot
         print('------------------------')
 
     # Wavecal
