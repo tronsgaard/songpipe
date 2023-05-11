@@ -433,7 +433,7 @@ class HighLowImage(Image):
     def make_hdulist(self, dtype=None):
         return fits.HDUList([
             fits.PrimaryHDU(data=self.high_gain_image.data.astype(dtype), header=self.high_gain_image.header),
-            fits.ImageHDU(data=self.high_gain_image.data.astype(dtype), header=self.high_gain_image.header),
+            fits.ImageHDU(data=self.low_gain_image.data.astype(dtype), header=self.low_gain_image.header),
         ])
 
     @property
