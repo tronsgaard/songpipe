@@ -172,7 +172,7 @@ def run():
     flats = {}
     flats['F1'] = prep_images.filter(image_type='FLAT', object_exact='FLATfib1')
     flats['F2'] = prep_images.filter(image_type='FLAT', object_exact='FLATfib2')
-    flats['F12'] = prep_images.filter(image_type='FLAT', object_exact='FLATfib12')
+    flats['F12'] = prep_images.filter(image_type=('FLAT'), object_exact='FLATfib12')
 
     # Calibration loop (loop over each mode)
     for mode in modes:
@@ -208,7 +208,8 @@ def run():
 
         # Measure scattered light from flat
         print(f'Measuring scattered light in master flat...')
-        step_scatter = BackgroundScatter(instrument, mode, None, opts.datestr, calibdir, order_range, **config['scatter'])
+        step_scatter = BackgroundScatter(instrument, mode, None, opts.datestr, calibdir, order_range,
+                                         **config['scatter'])
         if exists(step_scatter.savefile):
             scatter = step_scatter.load()
             print('Loaded existing scattered light fit for image {}')
@@ -244,14 +245,11 @@ def run():
             continue
 
         print(f'Extracting {len(images_to_extract)} frames in mode {mode}...')
-
-        files = images_to_extract.filter(mode=mode)
-        files.list()
         target = None
 
         step_science = CustomScienceExtraction(instrument, mode, target, opts.datestr, opts.outdir, order_range,
                                                **config['science'])
-        for f in files:
+        for f in images_to_extract:
             print(f'Working on file: {basename(f.filename)}')
             outfile = step_science.science_file(f.filename)
             if exists(outfile):

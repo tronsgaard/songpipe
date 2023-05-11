@@ -166,7 +166,6 @@ class CustomScienceExtraction(ScienceExtraction):
         new_filename = construct_filename(orig_filename, extracted=True)
         return join(self.output_dir, new_filename)
 
-
 class Image:
     """Represents a normal, single FITS image"""
 
