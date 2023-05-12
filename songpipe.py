@@ -401,7 +401,7 @@ class HighLowImage(Image):
         print('Combining high gain images...')
         high_gain_image = combine_function([im.high_gain_image for im in images])
         print('Combining low gain images...')
-        low_gain_image = combine_function([im.high_gain_image for im in images])
+        low_gain_image = combine_function([im.low_gain_image for im in images])
         return HighLowImage(high_gain_image, low_gain_image)  # Return a HighLowImage
 
     @staticmethod
