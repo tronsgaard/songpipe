@@ -98,7 +98,7 @@ def median_combine(images, nallocate=10, verbose=True):
         x = np.zeros((n, stop - start, width))
         for i, im in tqdm(enumerate(images), leave=False, unit_scale=True):
             h = im.file_handle
-            x[i] = h[0].data[start:stop, :]
+            x[i] = h[im.ext].data[start:stop, :]
             t.update()  # Progress bar
         result[start:stop, :] = np.median(x, axis=0)
 
