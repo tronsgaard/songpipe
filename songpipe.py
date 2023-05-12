@@ -169,12 +169,13 @@ class CustomScienceExtraction(ScienceExtraction):
 class Image:
     """Represents a normal, single FITS image"""
 
-    def __init__(self, header=None, data=None, filename=None, ext=0):
+    def __init__(self, header=None, data=None, filename=None, ext=0, parent=None):
         super().__init__()
         self._header = header
         self._data = data
         self.filename = filename
         self.ext = ext
+        self.parent = parent  # Enables us to go back to a HighLowImage and look in the primary header
         self.file_handle = None
 
         # Load header from file
@@ -190,6 +191,16 @@ class Image:
     def combine(cls, images, combine_function, **kwargs):
         """Combine a list of Images into one Image"""
         return combine_function(images, **kwargs)  # Returns an image
+
+    def get_header_value(self, key):
+        """If header does not contain the key, go back and check the parent frame (e.g. a HighLowImage)"""
+        try:
+            return self.header[key]
+        except KeyError:
+            if self.parent is not None:
+                return self.parent.get_header_value(key)
+            else:
+                raise
 
     @property
     def header(self):
@@ -209,27 +220,27 @@ class Image:
 
     @property
     def object(self):
-        return self.header['OBJECT']
+        return self.get_header_value('OBJECT')
 
     @property
     def exptime(self):
-        return self.header['EXPTIME']
+        return self.get_header_value('EXPTIME')
 
     @property
     def type(self):
-        return self.header['IMAGETYP']
+        return self.get_header_value('IMAGETYP')
 
     @property
     def mode(self):
         """Returns the instrument mode, currently (MtKent): F1, F2, or F12, SLIT, DARK, UNKNOWN"""
         if self.type in ('DARK', 'BIAS'):
             return 'DARK'
-        if self.type == 'FLAT' and self.header['LIGHTP'] == 1:
+        if self.type == 'FLAT' and self.get_header_value('LIGHTP') == 1:
             return 'SLIT'
         if self.type in ('FLAT', 'FLATI2', 'THAR', 'FP'):
             # Check telescope shutters
-            tel1 = self.header['TEL1_S']
-            tel2 = self.header['TEL2_S']
+            tel1 = self.get_header_value('TEL1_S')
+            tel2 = self.get_header_value('TEL2_S')
             if tel1 == 1 and tel2 == 1:
                 return 'F12'
             if tel1 == 1:
@@ -374,7 +385,7 @@ class Image:
 
     # Misc
     def construct_filename(self, **kwargs):
-        return construct_filename(basename(self.header['FILE']), object=self.object, **kwargs)
+        return construct_filename(basename(self.get_header_value('FILE')), object=self.object, **kwargs)
 
 
 class HighLowImage(Image):
@@ -382,6 +393,8 @@ class HighLowImage(Image):
         if high_gain_image is not None or low_gain_image is not None:
             assert isinstance(high_gain_image, Image)
             assert isinstance(low_gain_image, Image)
+            high_gain_image.parent = self
+            low_gain_image.parent = self
         self.high_gain_image = high_gain_image
         self.low_gain_image = low_gain_image
         self.filename = filename
@@ -392,8 +405,8 @@ class HighLowImage(Image):
 
         # Load from file
         if self.high_gain_image is None and self.low_gain_image is None:
-            self.high_gain_image = Image(filename=filename, ext=0)
-            self.low_gain_image = Image(filename=filename, ext=1)
+            self.high_gain_image = Image(filename=filename, ext=0, parent=self)
+            self.low_gain_image = Image(filename=filename, ext=1, parent=self)
 
     @classmethod
     def combine(cls, images, combine_function):
