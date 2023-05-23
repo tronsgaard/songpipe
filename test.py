@@ -135,6 +135,7 @@ def run():
 
             # Clear cached data
             merged.clear_data()
+            im.clear_data()
 
             # Append to list
             prep_images.append(merged)
