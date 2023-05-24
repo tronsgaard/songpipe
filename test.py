@@ -26,6 +26,8 @@ ap.add_argument('--rawdir', type=str, default=None,
                 help=f'Override raw directory (default: <basedir>/star_spec/<date_string>/raw)')
 ap.add_argument('--outdir', type=str, default=None,
                 help=f'Override raw directory (default: <basedir>/extr_spec/<date_string>)')
+ap.add_argument('--reload-cache', action='store_true',
+                help='Ignore cached FITS headers and reload from files')
 # TODO: Implement these:
 ap.add_argument('--prep-only', action='store_true',
                 help='Prepare files only - stop before PyReduce extraction')
@@ -53,8 +55,30 @@ def run():
     print(f'Image class: <{image_class.__module__}.{image_class.__name__}>')
     print('------------------------')
 
-    print('Loading FITS headers from raw images...')
-    images = songpipe.ImageList.from_filemask(join(opts.rawdir, '*.fits'), image_class=image_class)
+    # Load all FITS headers as Image objects
+    savename = join(opts.outdir, ".songpipe_cache.npz")
+    images = None
+    if opts.reload_cache is False:
+        try:
+            import dill
+            with open(savename, 'rb') as h:
+                images = dill.load(h)
+            print(f'Loaded FITS headers from cache: {relpath(savename, opts.outdir)}')
+        except (FileNotFoundError,):
+            pass
+        except:
+            print('Could not reload FITS headers from cache')
+    if images is None:
+        print('Loading FITS headers from raw images...')
+        images = songpipe.ImageList.from_filemask(join(opts.rawdir, '*.fits'), image_class=image_class)
+        try:
+            # Save objects for next time
+            import dill
+            with open(savename, 'wb') as h:
+                dill.dump(images, h)
+        except:
+            print('Could not save cache. Continuing...')
+
     print('------------------------')
     images.list()
     print('------------------------')
