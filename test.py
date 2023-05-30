@@ -6,10 +6,14 @@ from os.path import join, exists, relpath, splitext, basename
 from glob import glob
 import argparse
 import numpy as np
+import matplotlib
+matplotlib.use('Agg')  # Don't show plots..
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 import astropy.io.fits as fits
 import songpipe
+
+
 
 # Default settings (should go in a separate file)
 defaults = {
@@ -26,6 +30,8 @@ ap.add_argument('--rawdir', type=str, default=None,
                 help=f'Override raw directory (default: <basedir>/star_spec/<date_string>/raw)')
 ap.add_argument('--outdir', type=str, default=None,
                 help=f'Override raw directory (default: <basedir>/extr_spec/<date_string>)')
+ap.add_argument('--plot', action='store_true',
+                help='Activate plotting in PyReduce')
 ap.add_argument('--reload-cache', action='store_true',
                 help='Ignore cached FITS headers and reload from files')
 # TODO: Implement these:
@@ -56,7 +62,7 @@ def run():
     print('------------------------')
 
     # Load all FITS headers as Image objects
-    savename = join(opts.outdir, ".songpipe_cache.npz")
+    savename = join(opts.outdir, ".songpipe_cache")
     images = None
     if opts.reload_cache is False:
         try:
@@ -179,111 +185,58 @@ def run():
     from pyreduce.instruments.common import create_custom_instrument
     from pyreduce.reduce import Flat, OrderTracing, BackgroundScatter, NormalizeFlatField
     from pyreduce.util import start_logging
-    from songpipe import CustomScienceExtraction  # Modified version
+    from pyreduce.combine_frames import combine_calibrate
+    from songpipe import CalibrationSet, MultiFiberCalibrationSet  # Modified version
 
     print(f'Setting up PyReduce (version {pyreduce.__version__})')
 
     # Create custom instrument
     instrument = create_custom_instrument("SONG-Australia", mask_file=None, wavecal_file=None)
     mask = np.zeros((4096, 4096))  # TODO: Load an actual bad pixel mask
+    bias, bhead = None, None  # Already subtracted
 
     # Load default config
-    config = get_configuration_for_instrument("pyreduce", plot=1)
+    config = get_configuration_for_instrument("pyreduce", plot=opts.plot)
 
-    order_range = None  # Process all orders
+    # Set up and link calibration modes for Mt. Kent data
+    calibs = {}
+    calibs['F1'] = CalibrationSet(prep_images, calibdir, config, mask, instrument, "F1")
+    calibs['F2'] = CalibrationSet(prep_images, calibdir, config, mask, instrument, "F2")
+    calibs['F12'] = MultiFiberCalibrationSet(prep_images, calibdir, config, mask, instrument, "F12")
 
-    # Get flat exposures for each mode (F1, F2, F12)
-    modes = ['F1', 'F2', 'F12']
-    flats = {}
-    flats['F1'] = prep_images.filter(image_type='FLAT', object_exact='FLATfib1')
-    flats['F2'] = prep_images.filter(image_type='FLAT', object_exact='FLATfib2')
-    flats['F12'] = prep_images.filter(image_type=('FLAT'), object_exact='FLATfib12')
+    calibs['F12'].link_single_fiber_calibs(calibs['F1'], calibs['F2'])
 
-    # Calibration loop (loop over each mode)
-    for mode in modes:
+    # Run calibration steps
+    for mode, calibration_set in calibs.items():
+        calibration_set.combine_flats()
 
-        # Combine the flats
-        step_flat = Flat(instrument, mode, None, opts.datestr, calibdir, None, **config['flat'])
-        if exists(step_flat.savefile):
-            flat, flat_header = step_flat.load(mask)
-            print(f"Loaded existing master flat ({mode}) from {relpath(step_flat.savefile, opts.outdir)}.")
-        else:
-            print(f'Assembling master flat ({mode})...')
-            flat, flat_header = step_flat.run(flats[mode].files, None, mask)
+    for mode, calibration_set in calibs.items():
+        calibration_set.trace_orders()
 
-        # Order tracing
-        step_orders = OrderTracing(instrument, mode, None, opts.datestr, calibdir, order_range, **config['orders'])
-        if exists(step_orders.savefile):
-            orders, column_range = step_orders.load()
-            print(f"Loaded {len(orders)} order traces ({mode}) from {relpath(step_orders.savefile, opts.outdir)}.")
-        else:
-            print(f'Tracing orders in ({mode})...')
-            orders, column_range = step_orders.run([step_flat.savefile], mask, None)
-            print(f"Traced {len(orders)} orders in image {relpath(step_flat.savefile, opts.outdir)}.")
+    # Measure scattered light from flat
+    for mode, calibration_set in calibs.items():
+        calibration_set.measure_scattered_light()
+        calibration_set.measure_curvature()  # Dummy - not useful with fiber
+        calibration_set.normalize_flat()
 
-        # Custom order plot
-        name, _ = splitext(step_orders.savefile)
-        savename = name + '.png'
-        songpipe.plot_order_trace(flat, orders, column_range, savename=savename)  # Custom plot routine
-        print(f'Order plot saved to: {savename}')
+    # TODO: set order range
+        
+    print('------------------------')
 
-        # Curvature
-        # -- not necessary with fiber mode
-        curvature = (None, None)
+    # Get images to extract
+    print('Finding images to extract...')
+    types_to_extract = ['STAR','THAR','FLATI2','FP']
+    images_to_extract = prep_images.filter(image_type=types_to_extract)
+    images_to_extract.list()
 
-        # Measure scattered light from flat
-        print(f'Measuring scattered light in master flat...')
-        step_scatter = BackgroundScatter(instrument, mode, None, opts.datestr, calibdir, order_range,
-                                         **config['scatter'])
-        if exists(step_scatter.savefile):
-            scatter = step_scatter.load()
-            print('Loaded existing scattered light fit for image {}')
-        else:
-            print('Measuring scattered light')
-            scatter = step_scatter.run([step_flat.savefile], mask, None, (orders, column_range))
+    for im in images_to_extract:
+        mode = im.mode
+        if im.mode == 'UNKNOWN':
+            mode = 'F12'  # Extract as F12 if mode is unknown (Mt. Kent)
+        calibration_set = calibs[mode]
+        calibration_set.extract(im, savedir=opts.outdir)
 
-        # TODO: Re-trace orders?
 
-        # Norm flat and blaze
-        step_normflat = NormalizeFlatField(instrument, mode, None, opts.datestr, calibdir, order_range, **config['norm_flat'])
-        try:
-            norm, blaze = step_normflat.load()
-            print(f'Loaded existing normflat ({mode}) from {relpath(step_normflat.savefile, opts.outdir)}')
-        except FileNotFoundError:
-            print(f'Normalizing {mode} flat field...')
-            norm, blaze = step_normflat.run((flat, flat_header), (orders, column_range), scatter, curvature)
-
-        print('------------------------')
-
-        # Get images to extract in this mode
-        print('Finding images to extract...')
-        types_to_extract = ['STAR','THAR','FLATI2','FP']
-        modes_to_extract = [mode]
-        if mode == 'F12':
-            modes_to_extract += ['UNKNOWN']  # Extract unknown mode as F12
-        images_to_extract = prep_images.filter(mode=modes_to_extract, image_type=types_to_extract)
-        images_to_extract.list()
-        print('------------------------')
-        if len(images_to_extract) == 0:
-            print('No images to extract in mode {mode}.')
-            print('------------------------')
-            continue
-
-        print(f'Extracting {len(images_to_extract)} frames in mode {mode}...')
-        target = None
-
-        step_science = CustomScienceExtraction(instrument, mode, target, opts.datestr, opts.outdir, order_range,
-                                               **config['science'])
-        for f in images_to_extract:
-            print(f'Working on file: {basename(f.filename)}')
-            outfile = step_science.science_file(f.filename)
-            if exists(outfile):
-                print(f'Extracted spectrum already exists: {relpath(outfile, opts.outdir)}')
-                print('Skipping...')
-            else:
-                heads, specs, sigmas, columns = step_science.run([f.filename], None, (orders, column_range),
-                                                                 (norm, blaze), curvature, mask)
-                # TODO: Generate diagnostic plot
         print('------------------------')
 
     # Wavecal
