@@ -34,6 +34,8 @@ ap.add_argument('--plot', action='store_true',
                 help='Activate plotting in PyReduce')
 ap.add_argument('--reload-cache', action='store_true',
                 help='Ignore cached FITS headers and reload from files')
+ap.add_argument('--simple-extract', action='store_true',
+                help='Extract using simple summation across orders (faster than optimal extraction)')
 # TODO: Implement these:
 ap.add_argument('--prep-only', action='store_true',
                 help='Prepare files only - stop before PyReduce extraction')
@@ -197,6 +199,10 @@ def run():
 
     # Load default config
     config = get_configuration_for_instrument("pyreduce", plot=opts.plot)
+
+    if opts.simple_extract:
+        onfig['science']['collapse_function'] = 'sum' 
+        config['science']['extraction_method'] = 'arc'  # SIMPLE EXTRACTION TO SPEED UP THINGS
 
     # Set up and link calibration modes for Mt. Kent data
     calibs = {}
