@@ -262,9 +262,6 @@ class CalibrationSet():
         self.steps['norm_flat'] = step_normflat
 
     def extract(self, image, savedir=None):
-        self.config['science']['collapse_function'] = 'sum' 
-        self.config['science']['extraction_method'] = 'arc'  # SIMPLE EXTRACTION TO SPEED UP THINGS
-
         step_science = ScienceExtraction(*self.step_args, **self.config['science'])
         self.steps['science'] = step_science
         orig_filename = basename(image.filename)
