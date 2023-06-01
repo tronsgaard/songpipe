@@ -144,6 +144,7 @@ def run():
             print(f'Reducing image: {relpath(im_orig.filename, opts.rawdir)}')
             print('Subtracting master bias...')
             im = im_orig.subtract_bias(master_bias)
+            im_orig.clear_data()  # Avoid filling up the memory
 
             # Select master dark based on exptime
             dark_exptimes = np.array([0] + list(master_darks.keys()))
@@ -157,6 +158,7 @@ def run():
             print('Applying gain and merge high+low')
             im = im.apply_gain()
             merged = im.merge_high_low()
+            im.clear_data()  # Avoid filling up the memory
 
             # Orientation
             print('Orienting image')
@@ -164,10 +166,7 @@ def run():
 
             # Save image
             merged.save_fits(out_filename, overwrite=True, dtype='float32')  # FIXME: Maybe change dtype to float64
-
-            # Clear cached data
-            merged.clear_data()
-            im.clear_data()
+            merged.clear_data()  # Avoid filling up the memory
 
             # Append to list
             prep_images.append(merged)
