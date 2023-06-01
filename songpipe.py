@@ -18,7 +18,7 @@ def construct_filename(orig_filename, object=None, prepared=False, extracted=Fal
     """Construct a standardized filename based on the properties of the file"""
     filename, ext = splitext(orig_filename)
     if object is not None:
-        filename += '_' + object
+        filename += '_' + object.replace(' ', '_')
     # Prepend stuff
     if prefix is not None:
         filename = prefix + '_' + filename
