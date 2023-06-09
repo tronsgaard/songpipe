@@ -200,7 +200,7 @@ def run():
     config = get_configuration_for_instrument("pyreduce", plot=opts.plot)
 
     if opts.simple_extract:
-        onfig['science']['collapse_function'] = 'sum' 
+        config['science']['collapse_function'] = 'sum' 
         config['science']['extraction_method'] = 'arc'  # SIMPLE EXTRACTION TO SPEED UP THINGS
 
     # Set up and link calibration modes for Mt. Kent data
