@@ -262,11 +262,12 @@ class CalibrationSet():
         self.steps['norm_flat'] = step_normflat
 
     def extract(self, image, savedir=None):
+    def extract(self, image, savedir=None, skip_existing=True):
         step_science = ScienceExtraction(*self.step_args, **self.config['science'])
         self.steps['science'] = step_science
         orig_filename = basename(image.filename)
         print(f'Working on file: {orig_filename}')
-        if self.check_extracted_exists():
+        if self.check_extracted_exists(orig_filename) and skip_existing is True:
             print(f'Extracted spectrum already exists for {orig_filename}')
             return
         else:
