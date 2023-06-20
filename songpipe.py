@@ -278,6 +278,7 @@ class CalibrationSet():
 
     def save_extracted(self, orig_filename, head, spec, sigma, column_range, savedir=None):
         nameout = self.get_extracted_filename(orig_filename, savedir=savedir, mode=self.mode)
+        head = header_insert(head, 'PL_MODE', self.mode, 'Observing mode (e.g. fiber)')
         print(f'Saving spectrum to file: {nameout}')
         echelle.save(nameout, head, spec=spec, sig=sigma, columns=column_range)
 
@@ -351,6 +352,7 @@ class MultiFiberCalibrationSet(CalibrationSet):
 
             # Save this mode
             nameout = self.get_extracted_filename(orig_filename, savedir=savedir, mode=sub_mode)
+            head = header_insert(head, 'PL_MODE', sub_mode, 'Observing mode (e.g. fiber)')
             print(f'Saving {nord} orders from mode {sub_mode} to file: {nameout}')
             echelle.save(nameout, head, spec=spec[selected], sig=sigma[selected], columns=column_range[selected])
             
