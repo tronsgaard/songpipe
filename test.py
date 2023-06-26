@@ -188,7 +188,10 @@ def run():
     import pyreduce
     from pyreduce.configuration import get_configuration_for_instrument
     from pyreduce.instruments.common import create_custom_instrument
-    from pyreduce.reduce import Flat, OrderTracing, BackgroundScatter, NormalizeFlatField
+    from pyreduce.reduce import Flat, OrderTracing, BackgroundScatter, NormalizeFlatField, \
+                                WavelengthCalibrationFinalize
+    from pyreduce.wavelength_calibration import LineList
+    from pyreduce import echelle
     from pyreduce.util import start_logging
     from pyreduce.combine_frames import combine_calibrate
     from songpipe import CalibrationSet, MultiFiberCalibrationSet  # Modified version
@@ -202,6 +205,7 @@ def run():
 
     # Load default config
     config = get_configuration_for_instrument("pyreduce", plot=opts.plot)
+    config['wavecal']['correlate_cols'] = 512
 
     if opts.simple_extract:
         config['science']['collapse_function'] = 'sum' 
@@ -212,7 +216,6 @@ def run():
     calibs['F1'] = CalibrationSet(prep_images, calibdir, config, mask, instrument, "F1")
     calibs['F2'] = CalibrationSet(prep_images, calibdir, config, mask, instrument, "F2")
     calibs['F12'] = MultiFiberCalibrationSet(prep_images, calibdir, config, mask, instrument, "F12")
-
     calibs['F12'].link_single_fiber_calibs(calibs['F1'], calibs['F2'])
 
     # Run calibration steps
@@ -228,13 +231,54 @@ def run():
         calibration_set.measure_curvature()  # Dummy - not useful with fiber
         calibration_set.normalize_flat()
 
-    # TODO: set order range
-        
+    # TODO: limit order range
+
+    # Extract and calibrate all ThAr spectra
+    thar_images = prep_images.filter(image_type='THAR')
+    thar_images.list()
+
+    thar_spectra = []
+    for im in thar_images:
+        mode = im.mode
+        calibration_set = calibs[mode]
+        thar_spectra += calibration_set.extract(im)
+
+    for thar in thar_spectra:
+        mode = thar.mode
+        calibration_set = calibs[mode]
+
+        head = thar.header
+        data = fits.getdata(thar.filename)
+        data = {column.lower(): data[column][0] for column in data.dtype.names}
+        spec = data['spec']
+
+        if 'wave' in data:
+            print(f'Wavelength solution already exists for file {relpath(thar.filename, opts.outdir)}')
+            wave = data['wave']        
+        else:
+            print(f'Wavelength calibration: {relpath(thar.filename, opts.outdir)}')
+
+            step_args = calibration_set.step_args
+            step_wavecal = WavelengthCalibrationFinalize(*step_args, **config['wavecal'])
+
+            wavecal_master = (spec, head)
+            reference = join(dirname(__file__), 'linelists/test_thar_fib2_2D.npz')
+            wavecal_init = LineList.load(reference)
+            wave, coef, linelist = step_wavecal.run(wavecal_master, wavecal_init)
+            # Save the coefficients and linelist in npz file
+            savefile = join(calibdir, thar.construct_filename(ext='.thar.npz', mode=mode, object=None))
+            np.savez(savefile, wave=wave, coef=coef, linelist=linelist)
+            # Save .ech compatible FITS file
+            data['wave'] = wave 
+            echelle.save(thar.filename, head, **data)
+
+        calibration_set.wavelength_calibs.append((head, wave))  # TODO: Change this such that OBSDATE and header info is stored as well
+
     print('------------------------')
 
     # Get images to extract
     print('Finding images to extract...')
-    types_to_extract = ['STAR','THAR','FLATI2','FP']
+    types_to_extract = ['STAR','FLATI2','FP']
     images_to_extract = prep_images.filter(image_type=types_to_extract)
     images_to_extract.list()
 
@@ -245,15 +289,17 @@ def run():
         calibration_set = calibs[mode]
         calibration_set.extract(im, savedir=opts.outdir)
 
-
         print('------------------------')
 
-    # Wavecal
+    
+    
     # Freqcomb
     # Continuum
     # Finalize
 
     # Output image with spectrum, blaze, wavelength (placeholder)
+
+    print('Done!')
 
 
 if __name__ == '__main__':

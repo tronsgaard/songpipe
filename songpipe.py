@@ -6,7 +6,7 @@ import astropy.io.fits as fits
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 from pyreduce import echelle
-from pyreduce.reduce import ScienceExtraction, Flat, OrderTracing, BackgroundScatter, NormalizeFlatField
+from pyreduce.reduce import ScienceExtraction, Flat, OrderTracing, BackgroundScatter, NormalizeFlatField, WavelengthCalibrationFinalize
 
 # Settings (to be moved to a separate file eventually)
 OBJECT_IN_FILENAME = True
@@ -15,7 +15,6 @@ OBJECT_IN_FILENAME = True
 """
 HELPER FUNCTIONS
 """
-
 __version__ = "0.1.0"
 
 def construct_filename(orig_filename, object=None, prepared=False, extracted=False, mode=None,
@@ -186,6 +185,7 @@ def plot_order_trace(flat, orders, column_range, savename=None):
 CLASS DEFINITIONS
 """
 
+
 class CalibrationSet():
     """This class represents a calibration set for a single-fiber setup (e.g. F1)"""
     
@@ -221,6 +221,8 @@ class CalibrationSet():
         self.data['bias'] = (None, None)
         self.data['curvature'] = (None, None)
         self.steps = {}
+
+        self.wavelength_calibs = []
 
     @property
     def step_args(self):
@@ -301,38 +303,47 @@ class CalibrationSet():
         self.data['norm_flat'] = (norm, blaze)
         self.steps['norm_flat'] = step_normflat
 
-    def extract(self, image, savedir=None):
-    def extract(self, image, savedir=None, skip_existing=True):
+    def extract(self, image, savedir=None, skip_existing=True, wave=None):
         step_science = ScienceExtraction(*self.step_args, **self.config['science'])
         self.steps['science'] = step_science
         orig_filename = basename(image.filename)
         print(f'Working on file: {orig_filename}')
         if self.check_extracted_exists(orig_filename) and skip_existing is True:
             print(f'Extracted spectrum already exists for {orig_filename}')
-            return
+            # FIXME: Check if wavelength solution needs to be appended
+            return self.load_extracted(orig_filename, savedir=savedir)
         else:
             im, head = step_science.calibrate([image.filename], self.mask, self.data['bias'], self.data['norm_flat'])
             spec, sigma, _, column_range = step_science.extract(im, head, self.data['orders'], self.data['curvature'])  # TODO: scattered light as kw arg
-            self.save_extracted(orig_filename, head, spec, sigma, column_range, savedir=savedir)
             # TODO: Make diagnostic plot
-            return 
-
+            return self.save_extracted(orig_filename, head, spec, sigma, column_range, savedir=savedir)
+            
     def save_extracted(self, orig_filename, head, spec, sigma, column_range, savedir=None):
         nameout = self.get_extracted_filename(orig_filename, savedir=savedir, mode=self.mode)
         head = header_insert(head, 'PL_MODE', self.mode, 'Observing mode (e.g. fiber)')
+        try:
+            wave = self.wavelength_calibs[0]
+        except IndexError:
+            wave = None
         print(f'Saving spectrum to file: {nameout}')
-        echelle.save(nameout, head, spec=spec, sig=sigma, columns=column_range)
+        echelle.save(nameout, head, spec=spec, sig=sigma, wave=wave, columns=column_range)
+        return [Spectrum(filename=nameout)]
+    
+    def load_extracted(self, orig_filename, savedir=None):
+        nameout = self.get_extracted_filename(orig_filename, savedir=savedir, mode=self.mode)
+        return [Spectrum(filename=nameout)]
 
     def get_extracted_filename(self, orig_filename, savedir=None, mode=None):
         orig_filename = basename(orig_filename)
         orig_filename, _ = splitext(orig_filename)
         orig_filename = orig_filename.replace('_prep', '')
         new_filename = construct_filename(orig_filename, extracted=True, mode=mode)
+        if savedir is None:
+            savedir = self.output_dir
         return join(savedir, new_filename)
     
     def check_extracted_exists(self, orig_filename, savedir=None):
         return exists(self.get_extracted_filename(orig_filename, savedir=savedir, mode=self.mode))
-
 
 
 class MultiFiberCalibrationSet(CalibrationSet):
@@ -387,6 +398,7 @@ class MultiFiberCalibrationSet(CalibrationSet):
         """Ensure that each fiber is saved to a separate file"""
 
         # Split extracted orders into modes/fibers
+        results = []
         for sub_mode in self.sub_modes:
             selected = self.order_modes == sub_mode  # E.g. all orders from F1
             nord = np.sum(selected)
@@ -394,19 +406,37 @@ class MultiFiberCalibrationSet(CalibrationSet):
             # Save this mode
             nameout = self.get_extracted_filename(orig_filename, savedir=savedir, mode=sub_mode)
             head = header_insert(head, 'PL_MODE', sub_mode, 'Observing mode (e.g. fiber)')
+            try:
+                whead, wave = self.sub_mode_calibs[sub_mode].wavelength_calibs[0]
+            except IndexError:
+                whead, wave = None, None
             print(f'Saving {nord} orders from mode {sub_mode} to file: {nameout}')
-            echelle.save(nameout, head, spec=spec[selected], sig=sigma[selected], columns=column_range[selected])
-            
+            echelle.save(nameout, head, spec=spec[selected], sig=sigma[selected], columns=column_range[selected], wave=wave)
+            results.append(Spectrum(filename=nameout))
+        return results
     
-    def check_extracted_exists(orig_filename, savedir=None):
-        return False  # FIXME
+    def load_extracted(self, orig_filename, savedir=None):
+        results = []
+        for sub_mode in self.sub_modes:
+            nameout = self.get_extracted_filename(orig_filename, savedir=savedir, mode=sub_mode)
+            results.append(Spectrum(filename=nameout))
+        return results
+    
+    def check_extracted_exists(self, orig_filename, savedir=None):
+        for mode, calib in self.sub_mode_calibs.items():
+            if calib.check_extracted_exists(orig_filename, savedir=savedir) is False:
+                return False
+        return True
 
 
-class Image:
-    """Represents a normal, single FITS image"""
+
+class Frame:
+    """
+    Base class for Image and Spectrum. 
+    Parent-child structure allows for HighLowImage containing two Image objects
+    """
 
     def __init__(self, header=None, data=None, filename=None, ext=0, parent=None):
-        super().__init__()
         self._header = header
         self._data = data
         self.filename = filename
@@ -423,11 +453,6 @@ class Image:
         if self._header is None:
             self._header = fits.Header()
 
-    @classmethod
-    def combine(cls, images, combine_function, **kwargs):
-        """Combine a list of Images into one Image"""
-        return combine_function(images, **kwargs)  # Returns an image
-
     def get_header_value(self, key):
         """If header does not contain the key, go back and check the parent frame (e.g. a HighLowImage)"""
         try:
@@ -441,18 +466,6 @@ class Image:
     @property
     def header(self):
         return self._header
-
-    @property
-    def data(self):
-        """Return array of data"""
-        if self._data is None:
-            self.load_data()
-        return self._data
-
-    @property
-    def shape(self):
-        """Return the shape of the data array"""
-        return (self.header['NAXIS1'], self.header['NAXIS2'])
 
     @property
     def object(self):
@@ -469,22 +482,57 @@ class Image:
     @property
     def mode(self):
         """Returns the instrument mode, currently (MtKent): F1, F2, or F12, SLIT, DARK, UNKNOWN"""
-        if self.type in ('DARK', 'BIAS'):
-            return 'DARK'
-        if self.type == 'FLAT' and self.get_header_value('LIGHTP') == 1:
-            return 'SLIT'
-        if self.type in ('FLAT', 'FLATI2', 'THAR', 'FP'):
-            # Check telescope shutters
-            tel1 = self.get_header_value('TEL1_S')
-            tel2 = self.get_header_value('TEL2_S')
-            if tel1 == 1 and tel2 == 1:
-                return 'F12'
-            if tel1 == 1:
-                return 'F1'
-            if tel2 == 1:
-                return 'F2'
-        # In any other case (including all observations):
-        return 'UNKNOWN'  # FIXME: Figure out a way to detect if there is light in both fibres
+        try:
+            # First look for SONGPIPE header keyword
+            return self.get_header_value('PL_MODE')
+        except KeyError:
+            # Otherwise, derive from rest of header
+            if self.type in ('DARK', 'BIAS'):
+                return 'DARK'
+            if self.type == 'FLAT' and self.get_header_value('LIGHTP') == 1:
+                return 'SLIT'
+            if self.type in ('FLAT', 'FLATI2', 'THAR', 'FP'):
+                # Check telescope shutters
+                tel1 = self.get_header_value('TEL1_S')
+                tel2 = self.get_header_value('TEL2_S')
+                if tel1 == 1 and tel2 == 1:
+                    return 'F12'
+                if tel1 == 1:
+                    return 'F1'
+                if tel2 == 1:
+                    return 'F2'
+            # In any other case (including all observations):
+            return 'UNKNOWN'  # FIXME: Figure out a way to detect if there is light in both fibre
+
+    # Misc
+    def construct_filename(self, **kwargs):
+        if 'object' in kwargs:
+            obj = kwargs.pop('object')  # Removes item from kwargs
+        elif OBJECT_IN_FILENAME is True:
+            obj = self.object
+        else:
+            obj = None
+        return construct_filename(basename(self.get_header_value('FILE')), object=obj, **kwargs)
+
+class Image(Frame):
+    """Represents a normal, single FITS image"""
+
+    @classmethod
+    def combine(cls, images, combine_function, **kwargs):
+        """Combine a list of Images into one Image"""
+        return combine_function(images, **kwargs)  # Returns an image
+    
+    @property
+    def data(self):
+        """Return array of data"""
+        if self._data is None:
+            self.load_data()
+        return self._data
+
+    @property
+    def shape(self):
+        """Return the shape of the data array"""
+        return (self.header['NAXIS1'], self.header['NAXIS2'])
 
     @property
     def bias_subtracted(self):
@@ -619,10 +667,6 @@ class Image:
             plt.sca(ax)
         plt.hist(self.data.flatten(), bins=bins, **kwargs)
 
-    # Misc
-    def construct_filename(self, **kwargs):
-        return construct_filename(basename(self.get_header_value('FILE')), object=self.object, **kwargs)
-
 
 class HighLowImage(Image):
     def __init__(self, high_gain_image=None, low_gain_image=None, filename=None):
@@ -635,6 +679,7 @@ class HighLowImage(Image):
         self.low_gain_image = low_gain_image
         self.filename = filename
         self.ext = None
+        self.parent = None
         self.file_handle = None
         self._data = None
         self._header = None
@@ -740,7 +785,29 @@ class HighLowImage(Image):
         return Image(data=merged, header=self.header)
 
 
-class ImageList():
+class Spectrum(Frame):
+    
+    @property
+    def nord(self):
+        pass
+
+    @property
+    def npix(self):
+        pass
+
+    @property
+    def spec(self):
+        pass
+
+    @property
+    def wave(self):
+        pass
+
+
+class FrameList:
+    pass
+
+class ImageList(FrameList):
     def __init__(self, images):
         self.images = images
         try:
@@ -902,3 +969,7 @@ class ImageList():
         result = self.image_class.combine(self.images, combine_function, **kwargs)
         print('Combine done!')
         return result
+
+
+class SpectrumList(FrameList):
+    pass
