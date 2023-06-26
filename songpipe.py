@@ -8,6 +8,10 @@ from tqdm import tqdm
 from pyreduce import echelle
 from pyreduce.reduce import ScienceExtraction, Flat, OrderTracing, BackgroundScatter, NormalizeFlatField
 
+# Settings (to be moved to a separate file eventually)
+OBJECT_IN_FILENAME = True
+
+
 """
 HELPER FUNCTIONS
 """
@@ -15,9 +19,9 @@ HELPER FUNCTIONS
 __version__ = "0.1.0"
 
 def construct_filename(orig_filename, object=None, prepared=False, extracted=False, mode=None,
-                       prefix=None, suffix=None):
+                       prefix=None, suffix=None, ext=None):
     """Construct a standardized filename based on the properties of the file"""
-    filename, ext = splitext(orig_filename)
+    filename, old_ext = splitext(orig_filename)
     if object is not None:
         filename += '_' + object.replace(' ', '_')
     # Prepend stuff
@@ -32,8 +36,11 @@ def construct_filename(orig_filename, object=None, prepared=False, extracted=Fal
         filename += '_extr'
     if suffix is not None:
         filename += '_' + suffix
-    if ext == '':
-        ext = '.fits'
+    if ext == None:
+        if old_ext != '':
+            ext = old_ext
+        else:
+            ext = '.fits'
     return filename + ext
 
 
