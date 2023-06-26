@@ -40,12 +40,14 @@ def header_insert(hdr, key, value=None, comment=''):
     """Keep the header organized by grouping all pipeline keywords in a section"""
     hdr = hdr.__copy__()
     SECTION_HEADER = ('---PL---', '----PIPELINE----', '-------------------------------------')
+    SECTION_FOOTER = ('--------', '----------------', '-------------------------------------')
     get_keys = lambda: list(hdr.keys())  # Get updated list of keys from header
     try:
         start = get_keys().index(SECTION_HEADER[0])
     except ValueError:
         hdr.set(*SECTION_HEADER)
         start = get_keys().index(SECTION_HEADER[0])
+        hdr.insert(start, SECTION_FOOTER, after=True)
     end = start
 
     # Determine end of section
@@ -58,9 +60,39 @@ def header_insert(hdr, key, value=None, comment=''):
             end += 1
 
     # Insert header key/value
-    hdr.insert(end, (key, value, comment), after=True)
+    if key in get_keys():
+        hdr.set(key, value, comment)
+    else:
+        hdr.insert(end, (key, value, comment), after=True)
     return hdr
 
+def sanitize_header(hdr):
+    """Remove duplicate key/value pairs and warn of duplicate keys with different values"""
+    
+    keys = list(hdr.keys())
+    values = list(hdr.values())
+    comments = list(hdr.comments)
+
+    new_header = fits.Header()
+    count_discarded = 0
+    for i in range(len(hdr)):
+        key, value, comment = keys[i], values[i], comments[i]
+        
+        if key not in new_header: 
+            # If key not already in header
+            new_header.append((key, value, comment))
+
+        elif key in new_header and value != new_header[key]:
+            # If key already in header, but different value (warn the user)
+            print(f'Conflicting header values: {key}: "{value}" vs. "{new_header[key]}"')
+            new_header.append((key, value, comment))
+
+        else:
+            # Otherwise, don't add to header (key/value pair matches existing)
+            count_discarded += 1
+    print(f'{count_discarded} key/value pairs removed.')
+    return new_header
+         
 
 def apply_limit(array, limit):
     """SQL-like limit syntax"""
