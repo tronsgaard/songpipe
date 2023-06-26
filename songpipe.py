@@ -9,7 +9,7 @@ from pyreduce import echelle
 from pyreduce.reduce import ScienceExtraction, Flat, OrderTracing, BackgroundScatter, NormalizeFlatField, WavelengthCalibrationFinalize
 
 # Settings (to be moved to a separate file eventually)
-OBJECT_IN_FILENAME = True
+OBJECT_IN_FILENAME = False
 
 
 """
