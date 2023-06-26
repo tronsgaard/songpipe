@@ -12,6 +12,7 @@ from pyreduce.reduce import ScienceExtraction, Flat, OrderTracing, BackgroundSca
 HELPER FUNCTIONS
 """
 
+__version__ = "0.1.0"
 
 def construct_filename(orig_filename, object=None, prepared=False, extracted=False, mode=None,
                        prefix=None, suffix=None):

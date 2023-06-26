@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import sys
-from os.path import join, exists, relpath, splitext, basename
+from os.path import join, exists, relpath, splitext, basename, dirname
 from glob import glob
 import argparse
 import numpy as np
@@ -70,8 +70,12 @@ def run():
         try:
             import dill
             with open(savename, 'rb') as h:
-                images = dill.load(h)
-            print(f'Loaded FITS headers from cache: {relpath(savename, opts.outdir)}')
+                images, version = dill.load(h)
+            if version != songpipe.__version__:
+                print("Cache version mismatch.")
+                images = None
+            else:
+                print(f'Loaded FITS headers from cache: {relpath(savename, opts.outdir)}')
         except (FileNotFoundError,):
             pass
         except:
@@ -83,7 +87,7 @@ def run():
             # Save objects for next time
             import dill
             with open(savename, 'wb') as h:
-                dill.dump(images, h)
+                dill.dump((images, songpipe.__version__), h)
         except:
             print('Could not save cache. Continuing...')
 
