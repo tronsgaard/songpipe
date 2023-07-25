@@ -78,7 +78,8 @@ def run():
                 print(f'Loaded FITS headers from cache: {relpath(savename, opts.outdir)}')
         except (FileNotFoundError,):
             pass
-        except:
+        except Exception as e:
+            print(e)
             print('Could not reload FITS headers from cache')
     if images is None:
         print('Loading FITS headers from raw images...')
@@ -88,7 +89,8 @@ def run():
             import dill
             with open(savename, 'wb') as h:
                 dill.dump((images, songpipe.__version__), h)
-        except:
+        except Exception as e:
+            print(e)
             print('Could not save cache. Continuing...')
 
     print('------------------------')
