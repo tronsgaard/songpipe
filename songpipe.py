@@ -148,6 +148,8 @@ def median_combine(images, nallocate=10, verbose=True):
     for im in images:
         im.close_file()
 
+    # TODO: Consider running a manual garbage collection here, to close any lingering memmap file handles
+
     header = fits.Header()
     header = header_insert(header, key='EXPTIME', value=np.median([im.exptime for im in images]))
     return Image(data=result, header=header)
@@ -575,6 +577,9 @@ class Image(Frame):
         """Close open file handle"""
         try:
             self.file_handle.close()
+            self.file_handle = None  # If we don't do this, the memory allocation seems to persist, 
+                                     # even after closing the file and deleting other references to 
+                                     # the data, leading to a memory leak when working on many files.
         except AttributeError:
             pass
 
