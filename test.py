@@ -179,6 +179,11 @@ def run():
 
     prep_images = songpipe.ImageList(prep_images)
 
+    # Clear bias and darks from memory
+    master_bias.clear_data()
+    for k, master_dark in master_darks.items():
+        master_dark.clear_data()
+
     print(f'Done preparing {len(prep_images)} images.')
     print('------------------------')
 
