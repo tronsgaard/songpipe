@@ -282,7 +282,7 @@ class CalibrationSet():
         step_scatter = BackgroundScatter(*self.step_args, **self.config['scatter'])
         if exists(step_scatter.savefile):
             scatter = step_scatter.load()
-            print('Loaded existing scattered light fit for image {}')
+            print(f'Loaded existing scattered light fit from {relpath(step_scatter.savefile, self.output_dir)}')
         else:
             print('Measuring scattered light')
             scatter = step_scatter.run([self.steps['flat'].savefile], self.mask, None, self.data['orders'])
@@ -296,10 +296,10 @@ class CalibrationSet():
     def normalize_flat(self):
         # Norm flat and blaze
         step_normflat = NormalizeFlatField(*self.step_args, **self.config['norm_flat'])
-        try:
+        if exists(step_normflat.savefile):
             norm, blaze = step_normflat.load()
             print(f'Loaded existing normflat ({self.mode}) from {relpath(step_normflat.savefile, self.output_dir)}')
-        except FileNotFoundError:
+        else:
             print(f'Normalizing {self.mode} flat field...')
             norm, blaze = step_normflat.run(self.data['flat'], self.data['orders'], self.data['scatter'], self.data['curvature'])
         self.data['norm_flat'] = (norm, blaze)
