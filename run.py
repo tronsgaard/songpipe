@@ -6,22 +6,25 @@ from os.path import join, exists, relpath, splitext, basename, dirname
 from glob import glob
 import argparse
 import numpy as np
+from tqdm import tqdm
+import astropy.io.fits as fits
+
 import matplotlib
 matplotlib.use('Agg')  # Don't show plots..
 import matplotlib.pyplot as plt
-from tqdm import tqdm
-import astropy.io.fits as fits
+
 import songpipe
 
 
-
-# Default settings (should go in a separate file)
+# Default settings 
+# TODO: Move to a separate config file
 defaults = {
     'basedir': '/mnt/c/data/SONG/ssmtkent/',
 }
 
 # Set up command line arguments
 ap = argparse.ArgumentParser()
+# Directory structure
 ap.add_argument('datestr', metavar='date_string', type=str, default=None,
                 help='Night date (as a string), e.g. `20220702`')
 ap.add_argument('--basedir', type=str, default=defaults['basedir'],
@@ -30,6 +33,9 @@ ap.add_argument('--rawdir', type=str, default=None,
                 help=f'Override raw directory (default: <basedir>/star_spec/<date_string>/raw)')
 ap.add_argument('--outdir', type=str, default=None,
                 help=f'Override raw directory (default: <basedir>/extr_spec/<date_string>)')
+ap.add_argument('--calibdir', type=str, default=None,
+                help=f'Override calib directory (default: <basedir>/extr_spec/<date_string>/calib)')
+# Actions
 ap.add_argument('--plot', action='store_true',
                 help='Activate plotting in PyReduce')
 ap.add_argument('--reload-cache', action='store_true',
@@ -45,16 +51,22 @@ ap.add_argument('--ignore-existing', action='store_true',
 def run():
     opts = ap.parse_args()
     if opts.rawdir is None:
+        # Default to <basedir>/star_spec/<date_string>/raw
         opts.rawdir = join(opts.basedir, 'star_spec', opts.datestr, 'raw')
     if opts.outdir is None:
+        # Default to <basedir>/extr_spec/<date_string>
         opts.outdir = join(opts.basedir, 'extr_spec', opts.datestr)
-    calibdir = join(opts.outdir, 'calib')
+    if opts.calibdir is None:
+        # Default to <basedir>/extr_spec/<date_string>/calib
+        opts.calibdir = join(opts.outdir, 'calib')
 
     print('SONG pipeline starting..')
     print('------------------------')
     print(f'Python version: {sys.version.split(" ")[0]}')
+    print(f'songpipe version: {songpipe.__version__}')
     print(f'Raw directory:    {opts.rawdir}')
     print(f'Output directory: {opts.outdir}')
+    print(f'Calib directory:  {opts.calibdir}')
 
     # Select image class (single channel or high/low gain)
     # TODO: This needs to be done automatically, by date or by analyzing the first FITS file
@@ -64,11 +76,12 @@ def run():
     print('------------------------')
 
     # Load all FITS headers as Image objects
+    # Objects are saved to a dill file called .songpipe_cache, saving time if we need to run the pipeline again
     savename = join(opts.outdir, ".songpipe_cache")
     images = None
     if opts.reload_cache is False:
         try:
-            import dill
+            import dill  # Similar to, yet better than, pickle
             with open(savename, 'rb') as h:
                 images, version = dill.load(h)
             if version != songpipe.__version__:
@@ -81,8 +94,10 @@ def run():
         except Exception as e:
             print(e)
             print('Could not reload FITS headers from cache')
+    # If images is still None, it means we need to load the FITS headers from their source
     if images is None:
         print('Loading FITS headers from raw images...')
+        # The following line loads all *.fits files from the raw directory
         images = songpipe.ImageList.from_filemask(join(opts.rawdir, '*.fits'), image_class=image_class)
         try:
             # Save objects for next time
@@ -96,6 +111,9 @@ def run():
     print('------------------------')
     images.list()
     print('------------------------')
+    print(f'Total: {len(images)} images')
+    print('------------------------')
+
 
     # Assemble master bias
     master_bias_filename = join(opts.outdir, 'calib/master_bias.fits')
@@ -139,7 +157,7 @@ def run():
 
     # Prepare images for extraction by subtracting master bias and dark and merging high-low gain channels
     print('------------------------')
-    print('Preparing images (bias and dark subtraction, merging high+low gain channels)...')
+    print('Preparing images...')
     prep_images = []
     for im_orig in loop_images:
         out_filename = join(opts.outdir, 'prep', im_orig.construct_filename(suffix='prep'))
@@ -155,33 +173,35 @@ def run():
             # Select master dark based on exptime
             dark_exptimes = np.array([0] + list(master_darks.keys()))
             k = np.argmin(np.abs(dark_exptimes - im.exptime))
-            dark_exptime = dark_exptimes[k]
+            dark_exptime = dark_exptimes[k]  # Make this more flexible
             if dark_exptime > 0:
                 print(f'Subtracting {dark_exptime}s master dark...')
                 im = im.subtract_dark(master_darks[dark_exptimes[k]])
 
             # Apply gain
             print('Applying gain and merge high+low')
-            im = im.apply_gain()
+            im = im.apply_gain()  # TODO: Move gain values to instrument config
             merged = im.merge_high_low()
             im.clear_data()  # Avoid filling up the memory
 
             # Orientation
             print('Orienting image')
-            merged = merged.orient(flip_updown=True, rotation=0)
+            merged = merged.orient(flip_updown=True, rotation=0)  # TODO: Move orientation parameters to instrument config
 
             # Save image
-            merged.save_fits(out_filename, overwrite=True, dtype='float32')  # FIXME: Maybe change dtype to float64
+            merged.save_fits(out_filename, overwrite=True, dtype='float32')  # FIXME: Maybe change dtype to float64?
             merged.clear_data()  # Avoid filling up the memory
 
             # Append to list
             prep_images.append(merged)
 
+
         #print('----')
 
+    # Wrap list of prepared images in ImageList class
     prep_images = songpipe.ImageList(prep_images)
 
-    # Clear bias and darks from memory
+    # No more need for bias and darks - clear variables to free memory..
     master_bias.clear_data()
     for k, master_dark in master_darks.items():
         master_dark.clear_data()
@@ -195,8 +215,7 @@ def run():
     import pyreduce
     from pyreduce.configuration import get_configuration_for_instrument
     from pyreduce.instruments.common import create_custom_instrument
-    from pyreduce.reduce import Flat, OrderTracing, BackgroundScatter, NormalizeFlatField, \
-                                WavelengthCalibrationFinalize
+    from pyreduce.reduce import WavelengthCalibrationFinalize
     from pyreduce.wavelength_calibration import LineList
     from pyreduce import echelle
     from pyreduce.util import start_logging
@@ -212,20 +231,21 @@ def run():
 
     # Load default config
     config = get_configuration_for_instrument("pyreduce", plot=opts.plot)
+    
+    # Modify default config
     config['wavecal']['correlate_cols'] = 512
-
     if opts.simple_extract:
         config['science']['collapse_function'] = 'sum' 
-        config['science']['extraction_method'] = 'arc'  # SIMPLE EXTRACTION TO SPEED UP THINGS
+        config['science']['extraction_method'] = 'arc'  # SIMPLE EXTRACTION TO SPEED THINGS UP
 
     # Set up and link calibration modes for Mt. Kent data
     calibs = {}
-    calibs['F1'] = CalibrationSet(prep_images, calibdir, config, mask, instrument, "F1")
-    calibs['F2'] = CalibrationSet(prep_images, calibdir, config, mask, instrument, "F2")
-    calibs['F12'] = MultiFiberCalibrationSet(prep_images, calibdir, config, mask, instrument, "F12")
+    calibs['F1'] = CalibrationSet(prep_images, opts.calibdir, config, mask, instrument, "F1")
+    calibs['F2'] = CalibrationSet(prep_images, opts.calibdir, config, mask, instrument, "F2")
+    calibs['F12'] = MultiFiberCalibrationSet(prep_images, opts.calibdir, config, mask, instrument, "F12")
     calibs['F12'].link_single_fiber_calibs(calibs['F1'], calibs['F2'])
 
-    # Run calibration steps
+    # Run calibration steps via CalibrationSet objects
     for mode, calibration_set in calibs.items():
         calibration_set.combine_flats()
 
@@ -273,13 +293,14 @@ def run():
             wavecal_init = LineList.load(reference)
             wave, coef, linelist = step_wavecal.run(wavecal_master, wavecal_init)
             # Save the coefficients and linelist in npz file
-            savefile = join(calibdir, thar.construct_filename(ext='.thar.npz', mode=mode, object=None))
+            savedir = join(opts.outdir, 'wave')
+            savefile = join(savedir, thar.construct_filename(ext='.thar.npz', mode=mode, object=None))
             np.savez(savefile, wave=wave, coef=coef, linelist=linelist)
             # Save .ech compatible FITS file
             data['wave'] = wave 
             echelle.save(thar.filename, head, **data)
 
-        calibration_set.wavelength_calibs.append((head, wave))  # TODO: Change this such that OBSDATE and header info is stored as well
+        calibration_set.wavelength_calibs.append((head, wave))
 
     print('------------------------')
 
