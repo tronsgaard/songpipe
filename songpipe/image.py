@@ -13,7 +13,7 @@ from .misc import apply_limit, header_insert
 """
 METHODS FOR COMBINING IMAGES
 """
-def median_combine(images, nallocate=10, verbose=True):
+def median_combine(images, nallocate=10, silent=False):
     """Median combine a list of 2D images"""
 
     # Open all files
@@ -29,14 +29,14 @@ def median_combine(images, nallocate=10, verbose=True):
     result = np.zeros((height, width))
 
     # Loop over stripes
-    t = tqdm(total=n * nstripes)
+    t = tqdm(total=n * nstripes, disable=silent)
     for k in range(0, height, stripeheight):
         start = k
         stop = min(k + stripeheight, height)
 
         # Loop over images
         x = np.zeros((n, stop - start, width))
-        for i, im in tqdm(enumerate(images), leave=False, unit_scale=True):
+        for i, im in tqdm(enumerate(images), leave=False, unit_scale=True, disable=silent):
             h = im.file_handle
             x[i] = h[im.ext].data[start:stop, :]
             t.update()  # Progress bar
@@ -55,9 +55,9 @@ def median_combine(images, nallocate=10, verbose=True):
     return Image(data=result, header=header)
 
 
-def mean_combine(images):
+def mean_combine(images, silent=False):
     """Mean combine a list of 2D images"""
-    data = [im.data for im in tqdm(images)]
+    data = [im.data for im in tqdm(images, disable=silent)]
     return Image(data=np.mean(data, axis=0))
 
 """
@@ -351,14 +351,14 @@ class ImageList(FrameList):
             assert type(im) == self.image_class
 
     @classmethod
-    def from_files(cls, files, image_class=Image, limit=None):
+    def from_files(cls, files, image_class=Image, limit=None, silent=False):
         files = apply_limit(files, limit)
-        images = [image_class(filename=f) for f in tqdm(files)]
+        images = [image_class(filename=f) for f in tqdm(files, disable=silent)]
         return ImageList(images)
 
     @classmethod
-    def from_filemask(cls, filemask, image_class=Image, limit=None):
-        return cls.from_files(glob(filemask), image_class=image_class, limit=limit)
+    def from_filemask(cls, filemask, image_class=Image, limit=None, silent=False):
+        return cls.from_files(glob(filemask), image_class=image_class, limit=limit, silent=silent)
 
     @property
     def files(self):

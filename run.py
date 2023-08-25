@@ -6,7 +6,6 @@ from os.path import join, exists, relpath, splitext, basename, dirname
 from glob import glob
 import argparse
 import numpy as np
-from tqdm import tqdm
 import astropy.io.fits as fits
 
 import matplotlib
@@ -42,6 +41,8 @@ ap.add_argument('--reload-cache', action='store_true',
                 help='Ignore cached FITS headers and reload from files')
 ap.add_argument('--simple-extract', action='store_true',
                 help='Extract using simple summation across orders (faster than optimal extraction)')
+ap.add_argument('--silent', action='store_true',
+                help='Silent mode (useful when running in background)')
 # TODO: Implement these:
 ap.add_argument('--prep-only', action='store_true',
                 help='Prepare files only - stop before PyReduce extraction')
@@ -98,7 +99,7 @@ def run():
     if images is None:
         print('Loading FITS headers from raw images...')
         # The following line loads all *.fits files from the raw directory
-        images = songpipe.ImageList.from_filemask(join(opts.rawdir, '*.fits'), image_class=image_class)
+        images = songpipe.ImageList.from_filemask(join(opts.rawdir, '*.fits'), image_class=image_class, silent=opts.silent)
         try:
             # Save objects for next time
             import dill
@@ -125,7 +126,7 @@ def run():
         print('Assembling master bias...')
         bias_list = images.filter(image_type='BIAS')
         bias_list.list()
-        master_bias = bias_list.combine(method='median')
+        master_bias = bias_list.combine(method='median', silent=opts.silent)
         master_bias.save_fits(master_bias_filename, overwrite=True, dtype='float32')
 
     # Assemble master darks
@@ -147,7 +148,7 @@ def run():
                 print(f'No darks available for exptime {exptime} s')  # TODO: Handle missing darks
                 continue
             print(f'Building {exptime} s master dark')
-            master_darks[exptime] = dark_list.combine(method='median')
+            master_darks[exptime] = dark_list.combine(method='median', silent=opts.silent)
             master_darks[exptime].subtract_bias(master_bias, inplace=True)  # Important!
             master_darks[exptime].save_fits(master_dark_filename, overwrite=True, dtype='float32')
 
