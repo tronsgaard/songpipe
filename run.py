@@ -55,6 +55,13 @@ ap.add_argument('--ignore-existing', action='store_true',
 
 def run():
     opts = ap.parse_args()
+
+    if opts.silent:
+        # Silence terminal output by redirecting stdout to /dev/null
+        devnull = open('/dev/null', 'w')
+        sys.stdout = devnull
+        sys.stderr = devnull  # tqdm progress bars are printed through stderr; pyreduce has no option to silence tqdm
+
     if opts.rawdir is None:
         # Default to <basedir>/star_spec/<date_string>/raw
         opts.rawdir = join(opts.basedir, 'star_spec', opts.datestr, 'raw')
