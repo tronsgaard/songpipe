@@ -386,10 +386,11 @@ class ImageList(FrameList):
         else:
             raise KeyError(f'No such filename in list: {item}')
 
-    def list(self, add_keys=None):
+    def list(self, add_keys=None, outfile=None):
         """
         Print a pretty list of filenames and some fits keywords.
         Add list of keys by using add_keys=['KEY1', 'KEY2', ...]
+        Print to txt file by setting outfile=<path/to/file>
         """
         if len(self) == 0:
             return
@@ -423,18 +424,36 @@ class ImageList(FrameList):
             # Update dict of column widths
             for k in d.keys():
                 widths[k] = max((len(str(d[k])), widths.get(k, 0),))
+        
         # Define headers and update widths
         headers = {k: k.title() for k in widths.keys()}
         headers['image_type'] = 'Type'
         headers['exptime'] = 'Exp'
         widths = {k:max((len(headers[k]), w)) for k,w in widths.items()}
+        
         # Define format string
-        fmt = '  '.join([f'{{{k}:<{w}}}' for k, w in widths.items()])
-        # Print headers
-        print(fmt.format(**headers))
-        # Print table rows
+        fmt = '  '.join([f'{{{k}:<{w}}}' for k, w in widths.items()]) + '\n'
+        
+        # Generate header line
+        lines = []
+        lines.append(fmt.format(**headers))
+        
+        # Generate table rows
         for d in buffer:
-            print(fmt.format(**d))
+            lines.append(fmt.format(**d))
+
+        # Export to file if requeted
+        if outfile is not None:
+            try:
+                with open(outfile, 'w') as h:
+                    h.writelines(lines)
+            except IOError as e:
+                logger.error('Could not export nightlog to txt file. Continuing..')
+                logger.error(e)
+        # Print
+        for l in lines:
+            print(l, end='')
+                    
 
     def summary(self):
         """Print summary of image types in the list"""

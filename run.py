@@ -110,7 +110,7 @@ def run():
             print('Could not save cache. Continuing...')
 
     print('------------------------')
-    images.list()
+    images.list(outfile=join(opts.outdir, '000_list.txt'))
     print('------------------------')
     print(f'Total: {len(images)} images')
     print('------------------------')
