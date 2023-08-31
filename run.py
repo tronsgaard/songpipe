@@ -337,20 +337,25 @@ def run():
 
     print('------------------------')
 
-    # Get images to extract
-    logger.info('Finding images to extract...')
-    types_to_extract = ['STAR','FLATI2','FP']
-    images_to_extract = prep_images.filter(image_type=types_to_extract)
-    images_to_extract.list()
-
-    for im in images_to_extract:
+    # Extract star spectra
+    for im in prep_images.filter(image_type='STAR'):
         mode = im.mode
         if im.mode == 'UNKNOWN':
             mode = 'F12'  # Extract as F12 if mode is unknown (Mt. Kent)
         calibration_set = calibs[mode]
         calibration_set.extract(im, savedir=opts.outdir)
 
-        print('------------------------')
+    # Extract FlatI2
+    for im in prep_images.filter(image_type='FLATI2'):
+        calibration_set = calibs[im.mode]
+        calibration_set.extract(im, savedir=join(opts.outdir, 'flati2'))
+
+    # Extract FlatI2
+    for im in prep_images.filter(image_type='FP'):
+        calibration_set = calibs[im.mode]
+        calibration_set.extract(im, savedir=join(opts.outdir, 'fp'))
+
+    print('------------------------')
 
     
     
