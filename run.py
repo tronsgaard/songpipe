@@ -302,7 +302,7 @@ def run():
     for im in thar_images:
         mode = im.mode
         calibration_set = calibs[mode]
-        thar_spectra += calibration_set.extract(im)
+        thar_spectra += calibration_set.extract(im, savedir=opts.wavedir)
 
     for thar in thar_spectra:
         mode = thar.mode
@@ -315,7 +315,7 @@ def run():
 
         if 'wave' in data:
             logger.info(f'Wavelength solution already exists for file {relpath(thar.filename, opts.outdir)}')
-            wave = data['wave']        
+            wave = data['wave']
         else:
             logger.info(f'Wavelength calibration: {relpath(thar.filename, opts.outdir)}')
 
@@ -327,8 +327,7 @@ def run():
             wavecal_init = LineList.load(reference)
             wave, coef, linelist = step_wavecal.run(wavecal_master, wavecal_init)
             # Save the coefficients and linelist in npz file
-            savedir = join(opts.outdir, 'wave')
-            savefile = join(savedir, thar.construct_filename(ext='.thar.npz', mode=mode, object=None))
+            savefile = join(opts.wavedir, thar.construct_filename(ext='.thar.npz', mode=mode, object=None))
             np.savez(savefile, wave=wave, coef=coef, linelist=linelist)
             # Save .ech compatible FITS file
             data['wave'] = wave 
