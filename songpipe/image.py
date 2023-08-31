@@ -246,12 +246,12 @@ class HighLowImage(Image):
             self.low_gain_image = Image(filename=filename, ext=1, parent=self)
 
     @classmethod
-    def combine(cls, images, combine_function):
+    def combine(cls, images, combine_function, **kwargs):
         """Combine a list of HighLowImages into one HighLowImage"""
-        high_gain_image = combine_function([im.high_gain_image for im in images])
-        low_gain_image = combine_function([im.low_gain_image for im in images])
         logger.info('Combining high gain images...')
+        high_gain_image = combine_function([im.high_gain_image for im in images], **kwargs)
         logger.info('Combining low gain images...')
+        low_gain_image = combine_function([im.low_gain_image for im in images], **kwargs)
         return HighLowImage(high_gain_image, low_gain_image)  # Return a HighLowImage
 
     @staticmethod
