@@ -98,8 +98,8 @@ def run():
     # TODO: This needs to be done automatically, by date or by analyzing the first FITS file
     image_class = songpipe.HighLowImage  # For Mt. Kent
     # image_class = songpipe.Image  # For Tenerife (Not fully implemented)
-    print(f'Image class: <{image_class.__module__}.{image_class.__name__}>')
-    print('------------------------')
+    logger.info(f'Image class: <{image_class.__module__}.{image_class.__name__}>')
+    logger.info('------------------------')
 
     # Load all FITS headers as Image objects
     # Objects are saved to a dill file called .songpipe_cache, saving time if we need to run the pipeline again
@@ -111,18 +111,18 @@ def run():
             with open(savename, 'rb') as h:
                 images, version = dill.load(h)
             if version != songpipe.__version__:
-                print("Cache version mismatch.")
+                logger.warning("Cache version mismatch.")
                 images = None
             else:
-                print(f'Loaded FITS headers from cache: {relpath(savename, opts.outdir)}')
+                logger.info(f'Loaded FITS headers from cache: {relpath(savename, opts.outdir)}')
         except (FileNotFoundError,):
             pass
         except Exception as e:
-            print(e)
-            print('Could not reload FITS headers from cache')
+            logger.warning(e)
+            logger.warning('Could not reload FITS headers from cache')
     # If images is still None, it means we need to load the FITS headers from their source
     if images is None:
-        print('Loading FITS headers from raw images...')
+        logger.info('Loading FITS headers from raw images...')
         # The following line loads all *.fits files from the raw directory
         images = songpipe.ImageList.from_filemask(join(opts.rawdir, '*.fits'), image_class=image_class, silent=opts.silent)
         try:
@@ -131,8 +131,8 @@ def run():
             with open(savename, 'wb') as h:
                 dill.dump((images, songpipe.__version__), h)
         except Exception as e:
-            print(e)
-            print('Could not save cache. Continuing...')
+            logger.warning(e)
+            logger.warning('Could not save cache. Continuing...')
 
     print('------------------------')
     images.list(outfile=join(opts.outdir, '000_list.txt'))
@@ -145,34 +145,34 @@ def run():
     master_bias_filename = join(opts.outdir, 'calib/master_bias.fits')
     if exists(master_bias_filename):
         filename = relpath(master_bias_filename, opts.outdir)
-        print(f'Master bias already exists - loading from {filename}')
+        logger.info(f'Master bias already exists - loading from {filename}')
         master_bias = image_class(filename=master_bias_filename)
     else:
-        print('Assembling master bias...')
+        logger.info('Assembling master bias...')
         bias_list = images.filter(image_type='BIAS')
         bias_list.list()
         master_bias = bias_list.combine(method='median', silent=opts.silent)
         master_bias.save_fits(master_bias_filename, overwrite=True, dtype='float32')
 
     # Assemble master darks
-    print('------------------------')
-    print('Assembling master darks...')
+    logger.info('------------------------')
+    logger.info('Assembling master darks...')
     master_darks = {}  # Dict of darks for various exptimes
     exptimes = images.get_exptimes()
-    print(f'Exptimes (seconds): {exptimes}')
+    logger.info(f'Exptimes (seconds): {exptimes}')
     for exptime in exptimes:
         # For each dark exptime, construct a master dark
         master_dark_filename = join(opts.outdir, f'calib/master_dark_{exptime:.0f}s.fits')
         if exists(master_dark_filename):
             filename = relpath(master_dark_filename, opts.outdir)  # For nicer console output
-            print(f'Master dark ({exptime:.0f}s) already exists - loading from {filename}')
+            logger.debug(f'Master dark ({exptime:.0f}s) already exists - loading from {filename}')
             master_darks[exptime] = image_class(filename=master_dark_filename)
         else:
             dark_list = images.filter(image_type='DARK', exptime=exptime)  # TODO: Exptime tolerance
             if len(dark_list) == 0:
-                print(f'No darks available for exptime {exptime} s')  # TODO: Handle missing darks
+                logger.warning(f'No darks available for exptime {exptime} s')  # TODO: Handle missing darks
                 continue
-            print(f'Building {exptime} s master dark')
+            logger.info(f'Building {exptime} s master dark')
             master_darks[exptime] = dark_list.combine(method='median', silent=opts.silent)
             master_darks[exptime].subtract_bias(master_bias, inplace=True)  # Important!
             master_darks[exptime].save_fits(master_dark_filename, overwrite=True, dtype='float32')
@@ -182,17 +182,17 @@ def run():
     loop_images = [im for im in loop_images if im.type not in ('BIAS', 'DARK')]
 
     # Prepare images for extraction by subtracting master bias and dark and merging high-low gain channels
-    print('------------------------')
-    print('Preparing images...')
+    logger.info('------------------------')
+    logger.info('Preparing images...')
     prep_images = []
     for im_orig in loop_images:
         out_filename = join(opts.outdir, 'prep', im_orig.construct_filename(suffix='prep'))
         if exists(out_filename):
-            print(f'File already exists - loading from {relpath(out_filename, opts.outdir)}')
+            logger.debug(f'File already exists - loading from {relpath(out_filename, opts.outdir)}')
             prep_images.append(songpipe.Image(filename=out_filename))
         else:
-            print(f'Reducing image: {relpath(im_orig.filename, opts.rawdir)}')
-            print('Subtracting master bias...')
+            logger.info(f'Reducing image: {relpath(im_orig.filename, opts.rawdir)}')
+            logger.info('Subtracting master bias...')
             im = im_orig.subtract_bias(master_bias)
             im_orig.clear_data()  # Avoid filling up the memory
 
@@ -201,17 +201,17 @@ def run():
             k = np.argmin(np.abs(dark_exptimes - im.exptime))
             dark_exptime = dark_exptimes[k]  # Make this more flexible
             if dark_exptime > 0:
-                print(f'Subtracting {dark_exptime}s master dark...')
+                logger.info(f'Subtracting {dark_exptime}s master dark...')
                 im = im.subtract_dark(master_darks[dark_exptimes[k]])
 
             # Apply gain
-            print('Applying gain and merge high+low')
+            logger.info('Applying gain and merge high+low')
             im = im.apply_gain()  # TODO: Move gain values to instrument config
             merged = im.merge_high_low()
             im.clear_data()  # Avoid filling up the memory
 
             # Orientation
-            print('Orienting image')
+            logger.info('Orienting image')
             merged = merged.orient(flip_updown=True, rotation=0)  # TODO: Move orientation parameters to instrument config
 
             # Save image
@@ -232,8 +232,8 @@ def run():
     for k, master_dark in master_darks.items():
         master_dark.clear_data()
 
-    print(f'Done preparing {len(prep_images)} images.')
-    print('------------------------')
+    logger.info(f'Done preparing {len(prep_images)} images.')
+    logger.info('------------------------')
 
     ############################
     #         PyReduce         #
@@ -248,7 +248,7 @@ def run():
     from pyreduce.combine_frames import combine_calibrate
     from songpipe import CalibrationSet, MultiFiberCalibrationSet  # Modified version
 
-    print(f'Setting up PyReduce (version {pyreduce.__version__})')
+    logger.info(f'Setting up PyReduce (version {pyreduce.__version__})')
 
     # Create custom instrument
     instrument = create_custom_instrument("SONG-Australia", mask_file=None, wavecal_file=None)
@@ -306,10 +306,10 @@ def run():
         spec = data['spec']
 
         if 'wave' in data:
-            print(f'Wavelength solution already exists for file {relpath(thar.filename, opts.outdir)}')
+            logger.info(f'Wavelength solution already exists for file {relpath(thar.filename, opts.outdir)}')
             wave = data['wave']        
         else:
-            print(f'Wavelength calibration: {relpath(thar.filename, opts.outdir)}')
+            logger.info(f'Wavelength calibration: {relpath(thar.filename, opts.outdir)}')
 
             step_args = calibration_set.step_args
             step_wavecal = WavelengthCalibrationFinalize(*step_args, **config['wavecal'])
@@ -331,7 +331,7 @@ def run():
     print('------------------------')
 
     # Get images to extract
-    print('Finding images to extract...')
+    logger.info('Finding images to extract...')
     types_to_extract = ['STAR','FLATI2','FP']
     images_to_extract = prep_images.filter(image_type=types_to_extract)
     images_to_extract.list()
@@ -353,7 +353,7 @@ def run():
 
     # Output image with spectrum, blaze, wavelength (placeholder)
 
-    print('Done!')
+    logger.info('Done!')
 
 
 if __name__ == '__main__':

@@ -10,6 +10,9 @@ from tqdm import tqdm
 
 from .misc import apply_limit, header_insert
 
+import logging
+logger = logging.getLogger(__name__)
+
 """
 METHODS FOR COMBINING IMAGES
 """
@@ -25,7 +28,7 @@ def median_combine(images, nallocate=10, silent=False):
     n = len(images)
     stripeheight = height // n * nallocate  # Allocate memory corresponding to `nallocate` frames
     nstripes = int(np.ceil(height / stripeheight))
-    print(f'Median combine: Stripe height = {stripeheight} px ({nstripes} stripes)')
+    logger.info(f'Median combine: Stripe height = {stripeheight} px ({nstripes} stripes)')
     result = np.zeros((height, width))
 
     # Loop over stripes
@@ -108,7 +111,7 @@ class Image(Frame):
     # Data handling
     def load_data(self):
         """Load data from file"""
-        print(f'Loading FITS data from "{self.filename}" (ext {self.ext})')
+        logger.info(f'Loading FITS data from "{self.filename}" (ext {self.ext})')
         self.open_file()
         self._data = self.file_handle[self.ext].data
         self.close_file()
@@ -142,7 +145,7 @@ class Image(Frame):
     def save_fits(self, out_filename, overwrite=False, dtype=None):
         """Save image to a FITS file"""
         hdulist = self.make_hdulist(dtype=dtype)
-        print(f'Saving to {out_filename}...')
+        logger.info(f'Saving to {out_filename}...')
         makedirs(dirname(out_filename), exist_ok=True)  # Ensure that output folder exists
         hdulist.writeto(out_filename, overwrite=overwrite)
         self.filename = out_filename
@@ -245,10 +248,10 @@ class HighLowImage(Image):
     @classmethod
     def combine(cls, images, combine_function):
         """Combine a list of HighLowImages into one HighLowImage"""
-        print('Combining high gain images...')
         high_gain_image = combine_function([im.high_gain_image for im in images])
-        print('Combining low gain images...')
         low_gain_image = combine_function([im.low_gain_image for im in images])
+        logger.info('Combining high gain images...')
+        logger.info('Combining low gain images...')
         return HighLowImage(high_gain_image, low_gain_image)  # Return a HighLowImage
 
     @staticmethod
@@ -509,7 +512,7 @@ class ImageList(FrameList):
         return ImageList(images)
 
     def combine(self, method='median', **kwargs):
-        print(f'Combining {len(self)} images using method "{method}".')
+        logger.info(f'Combining {len(self)} images using method "{method}".')
         if method == 'median':
             combine_function = median_combine
         elif method == 'mean':
@@ -517,5 +520,5 @@ class ImageList(FrameList):
         else:
             raise ValueError(f'Unknown method "{method}"!')
         result = self.image_class.combine(self.images, combine_function, **kwargs)
-        print('Combine done!')
+        logger.info('Combine done!')
         return result
