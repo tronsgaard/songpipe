@@ -3,6 +3,7 @@
 
 import sys
 from os.path import join, exists, relpath, splitext, basename, dirname
+from os import makedirs
 from glob import glob
 import argparse
 import numpy as np
