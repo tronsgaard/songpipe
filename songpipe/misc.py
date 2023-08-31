@@ -1,5 +1,8 @@
-from os.path import splitext
+from os.path import splitext, dirname, exists
+from os import makedirs
 import astropy.io.fits as fits
+import logging
+from logging.handlers import RotatingFileHandler
 
 """
 This module contains various functions, e.g. FITS header manipulation, to be used by the other modules
@@ -95,4 +98,31 @@ def apply_limit(array, limit):
         limit = (limit,)
     return array[slice(*limit)]
 
+# Logging
+def setup_logger(log_file, name=None, level=logging.INFO, silent=False):
+    """
+    To setup as many loggers as we want
+    name=None sets up the root logger
+    """
 
+    logging.captureWarnings(True)
+
+    logger = logging.getLogger(name)
+    logger.setLevel(level)
+
+    makedirs(dirname(log_file), exist_ok=True)
+    log_file_exists = exists(log_file)
+    file_handler = RotatingFileHandler(log_file, backupCount=10)  # RotatingFileHandler ensures that most recent old logs are renamed and preserved
+    if log_file_exists:
+        file_handler.doRollover()
+    file_formatter = logging.Formatter('%(asctime)s %(levelname)s %(name)s %(message)s')  # Log columns
+    file_handler.setFormatter(file_formatter)
+    logger.addHandler(file_handler)
+
+    if not silent:
+        console_handler = logging.StreamHandler()
+        console_formatter = logging.Formatter('%(levelname)s %(message)s')
+        console_handler.setFormatter(console_formatter)
+        logger.addHandler(console_handler)
+
+    return logger

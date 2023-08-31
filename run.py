@@ -14,7 +14,6 @@ import matplotlib.pyplot as plt
 
 import songpipe
 
-
 # Default settings 
 # TODO: Move to a separate config file
 defaults = {
@@ -29,11 +28,15 @@ ap.add_argument('datestr', metavar='date_string', type=str, default=None,
 ap.add_argument('--basedir', type=str, default=defaults['basedir'],
                 help=f'Base directory (default: {defaults["basedir"]})')
 ap.add_argument('--rawdir', type=str, default=None,
-                help=f'Override raw directory (default: <basedir>/star_spec/<date_string>/raw)')
+                help=f'Specify raw directory (default: <basedir>/star_spec/<date_string>/raw)')
 ap.add_argument('--outdir', type=str, default=None,
-                help=f'Override raw directory (default: <basedir>/extr_spec/<date_string>)')
+                help=f'Specify raw directory (default: <basedir>/extr_spec/<date_string>)')
 ap.add_argument('--calibdir', type=str, default=None,
-                help=f'Override calib directory (default: <basedir>/extr_spec/<date_string>/calib)')
+                help=f'Specify calib directory (default: <basedir>/extr_spec/<date_string>/calib)')
+ap.add_argument('--wavedir', type=str, default=None,
+                help=f'Specify wavelength calibration directory (default: <basedir>/extr_spec/<date_string>/wave)')
+ap.add_argument('--logdir', type=str, default=None,
+                help=f'Specify log directory (default: <basedir>/extr_spec/<date_string>/log)')
 # Actions
 ap.add_argument('--plot', action='store_true',
                 help='Activate plotting in PyReduce')
@@ -57,17 +60,39 @@ def run():
     if opts.outdir is None:
         # Default to <basedir>/extr_spec/<date_string>
         opts.outdir = join(opts.basedir, 'extr_spec', opts.datestr)
+        makedirs(opts.outdir, exist_ok=True)
     if opts.calibdir is None:
         # Default to <basedir>/extr_spec/<date_string>/calib
         opts.calibdir = join(opts.outdir, 'calib')
+        makedirs(opts.calibdir, exist_ok=True)
+    if opts.wavedir is None:
+        # Default to <basedir>/extr_spec/<date_string>/wave
+        opts.wavedir = join(opts.outdir, 'wave')
+        makedirs(opts.wavedir, exist_ok=True)
+    if opts.logdir is None:
+        # Default to <basedir>/extr_spec/<date_str>/log
+        opts.logdir = join(opts.outdir, 'log')
 
-    print('SONG pipeline starting..')
-    print('------------------------')
-    print(f'Python version: {sys.version.split(" ")[0]}')
-    print(f'songpipe version: {songpipe.__version__}')
-    print(f'Raw directory:    {opts.rawdir}')
-    print(f'Output directory: {opts.outdir}')
-    print(f'Calib directory:  {opts.calibdir}')
+    # Set up logging
+    log_file = join(opts.logdir, f'songpipe.log')
+    logger = songpipe.misc.setup_logger(log_file, silent=opts.silent)
+
+    logger.info('SONG pipeline starting..')
+    logger.info('------------------------')
+    logger.info(f'Python version:    {sys.version.split(" ")[0]}')
+    logger.info(f'songpipe version:  {songpipe.__version__}')
+    logger.info('------------------------')
+    logger.info(f'Raw directory:     {opts.rawdir}')
+    logger.info(f'Output directory:  {opts.outdir}')
+    logger.info(f'Calib directory:   {opts.calibdir}')
+    logger.info(f'Wave directory:    {opts.wavedir}')
+    logger.info(f'Log directory:     {opts.logdir}')
+    logger.info('------------------------')
+    logger.info(f'Plotting:          {opts.plot}')
+    logger.info(f'Reload cache:      {opts.reload_cache}')
+    logger.info(f'Simple extraction: {opts.simple_extract}')
+    logger.info(f'Silent:            {opts.silent}')
+    logger.info('------------------------')
 
     # Select image class (single channel or high/low gain)
     # TODO: This needs to be done automatically, by date or by analyzing the first FITS file
