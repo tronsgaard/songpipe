@@ -143,7 +143,7 @@ def run():
 
 
     # Assemble master bias
-    master_bias_filename = join(opts.outdir, 'calib/master_bias.fits')
+    master_bias_filename = join(opts.outdir, 'prep/master_bias.fits')
     if exists(master_bias_filename):
         filename = relpath(master_bias_filename, opts.outdir)
         logger.info(f'Master bias already exists - loading from {filename}')
@@ -163,7 +163,7 @@ def run():
     logger.info(f'Exptimes (seconds): {exptimes}')
     for exptime in exptimes:
         # For each dark exptime, construct a master dark
-        master_dark_filename = join(opts.outdir, f'calib/master_dark_{exptime:.0f}s.fits')
+        master_dark_filename = join(opts.outdir, f'prep/master_dark_{exptime:.0f}s.fits')
         if exists(master_dark_filename):
             filename = relpath(master_dark_filename, opts.outdir)  # For nicer console output
             logger.debug(f'Master dark ({exptime:.0f}s) already exists - loading from {filename}')
