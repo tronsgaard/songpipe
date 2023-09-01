@@ -348,14 +348,16 @@ def run():
         calibration_set.extract(im, savedir=opts.outdir)
 
     # Extract FlatI2
-    for im in prep_images.filter(image_type='FLATI2'):
-        calibration_set = calibs[im.mode]
-        calibration_set.extract(im, savedir=join(opts.outdir, 'flati2'))
+    if opts.skip_flati2 is not True:
+        for im in prep_images.filter(image_type='FLATI2'):
+            calibration_set = calibs[im.mode]
+            calibration_set.extract(im, savedir=join(opts.outdir, 'flati2'))
 
     # Extract FlatI2
-    for im in prep_images.filter(image_type='FP'):
-        calibration_set = calibs[im.mode]
-        calibration_set.extract(im, savedir=join(opts.outdir, 'fp'))
+    if opts.skip_fp is not True:
+        for im in prep_images.filter(image_type='FP'):
+            calibration_set = calibs[im.mode]
+            calibration_set.extract(im, savedir=join(opts.outdir, 'fp'))
 
     print('------------------------')
 
