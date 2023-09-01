@@ -1,4 +1,5 @@
-from os.path import basename, splitext, exists, join, relpath
+from os.path import basename, splitext, exists, join, relpath, dirname
+from os import makedirs
 import numpy as np
 from pyreduce import echelle
 from pyreduce.reduce import ScienceExtraction, Flat, OrderTracing, BackgroundScatter, NormalizeFlatField
@@ -152,6 +153,7 @@ class CalibrationSet():
         except IndexError:
             wave = None
         print(f'Saving spectrum to file: {nameout}')
+        makedirs(dirname(nameout), exist_ok=True)
         echelle.save(nameout, head, spec=spec, sig=sigma, wave=wave, columns=column_range)
         return [Spectrum(filename=nameout)]
     
