@@ -3,7 +3,7 @@ from os.path import join, dirname, exists
 from os import makedirs
 import argparse
 
-import songpipe
+from .image import ImageList
 
 import logging
 from logging.handlers import RotatingFileHandler
@@ -33,8 +33,6 @@ def parse_arguments(defaults):
     ap.add_argument('--logdir', type=str, default=None,
                     help=f'Specify log directory (default: <basedir>/extr_spec/<date_string>/log)')
     # Actions
-    ap.add_argument('--debug', action='store_true',
-                    help='Set log level to debug (log everything)')
     ap.add_argument('--plot', action='store_true',
                     help='Activate plotting in PyReduce')
     ap.add_argument('--reload-cache', action='store_true',
@@ -47,6 +45,8 @@ def parse_arguments(defaults):
                     help='Skip extraction of FLATI2 spectra')
     ap.add_argument('--skip-fp', action='store_true',
                     help='Skip extraction of Fabry Perót (FP) spectra')
+    ap.add_argument('--debug', action='store_true',
+                    help='Set log level to debug (log everything)')
     # TODO:
     #ap.add_argument('--ignore-existing', action='store_true',
     #                help='Ignore existing output files and run extraction again')
@@ -144,10 +144,15 @@ def log_summary(opts, image_class):
     """
     Log various parameters and software versions
     """
+    from . import __version__ as songpipe_version
+    from pyreduce import __version__ as pyreduce_version
+
     logger.info('SONG pipeline starting..')
+    logger.info(f'Called as: {" ".join(sys.argv)}')
     logger.info('------------------------')
     logger.info(f'Python version:    {sys.version.split(" ")[0]}')
-    logger.info(f'songpipe version:  {songpipe.__version__}')
+    logger.info(f'songpipe version:  {songpipe_version}')
+    logger.info(f'pyreduce version:  {pyreduce_version}')
     logger.info('------------------------')
     logger.info(f'Raw directory:     {opts.rawdir}')
     logger.info(f'Output directory:  {opts.outdir}')
@@ -158,6 +163,9 @@ def log_summary(opts, image_class):
     logger.info(f'Reload cache:      {opts.reload_cache}')
     logger.info(f'Simple extraction: {opts.simple_extract}')
     logger.info(f'Silent:            {opts.silent}')
+    logger.info(f'Skip FLATI2:       {opts.skip_flati2}')
+    logger.info(f'Skip Fabry Pérot:  {opts.skip_fp}')
+    logger.info(f'Debug mode:        {opts.debug}')
     logger.info('------------------------')
 
     logger.info(f'Image class: <{image_class.__module__}.{image_class.__name__}>')
@@ -170,6 +178,8 @@ def load_images(filemask, image_class, reload_cache=False, outdir=dirname(__name
     Objects are saved to a dill file called .songpipe_cache, saving time if we need to run the pipeline again
     """
 
+    from . import __version__ as songpipe_version
+
     cachefile = join(outdir, ".songpipe_cache")
 
     images = None
@@ -178,7 +188,7 @@ def load_images(filemask, image_class, reload_cache=False, outdir=dirname(__name
             import dill  # Similar to, yet better than, pickle
             with open(cachefile, 'rb') as h:
                 images, version = dill.load(h)
-            if version != songpipe.__version__:
+            if version != songpipe_version:
                 logger.warning("Cache version mismatch.")
                 images = None
             else:
@@ -194,12 +204,12 @@ def load_images(filemask, image_class, reload_cache=False, outdir=dirname(__name
     if images is None:
         logger.info('Loading FITS headers from raw images...')
         # The following line loads all *.fits files from the raw directory
-        images = songpipe.ImageList.from_filemask(filemask, image_class=image_class, silent=silent)
+        images = ImageList.from_filemask(filemask, image_class=image_class, silent=silent)
         try:
             # Save objects for next time
             import dill
             with open(cachefile, 'wb') as h:
-                dill.dump((images, songpipe.__version__), h)
+                dill.dump((images, songpipe_version), h)
         except Exception as e:
             logger.warning(e)
             logger.warning('Could not save cache. Continuing...')
