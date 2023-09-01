@@ -34,8 +34,6 @@ ap.add_argument('--outdir', type=str, default=None,
                 help=f'Specify raw directory (default: <basedir>/extr_spec/<date_string>)')
 ap.add_argument('--calibdir', type=str, default=None,
                 help=f'Specify calib directory (default: <basedir>/extr_spec/<date_string>/calib)')
-ap.add_argument('--wavedir', type=str, default=None,
-                help=f'Specify wavelength calibration directory (default: <basedir>/extr_spec/<date_string>/wave)')
 ap.add_argument('--logdir', type=str, default=None,
                 help=f'Specify log directory (default: <basedir>/extr_spec/<date_string>/log)')
 # Actions
@@ -73,10 +71,6 @@ def run():
         # Default to <basedir>/extr_spec/<date_string>/calib
         opts.calibdir = join(opts.outdir, 'calib')
         makedirs(opts.calibdir, exist_ok=True)
-    if opts.wavedir is None:
-        # Default to <basedir>/extr_spec/<date_string>/wave
-        opts.wavedir = join(opts.outdir, 'wave')
-        makedirs(opts.wavedir, exist_ok=True)
     if opts.logdir is None:
         # Default to <basedir>/extr_spec/<date_str>/log
         opts.logdir = join(opts.outdir, 'log')
@@ -93,7 +87,6 @@ def run():
     logger.info(f'Raw directory:     {opts.rawdir}')
     logger.info(f'Output directory:  {opts.outdir}')
     logger.info(f'Calib directory:   {opts.calibdir}')
-    logger.info(f'Wave directory:    {opts.wavedir}')
     logger.info(f'Log directory:     {opts.logdir}')
     logger.info('------------------------')
     logger.info(f'Plotting:          {opts.plot}')
@@ -298,11 +291,14 @@ def run():
     thar_images = prep_images.filter(image_type='THAR')
     thar_images.list()
 
+    thardir = join(opts.outdir, 'thar')
+    makedirs(thardir, exist_ok=True)
+
     thar_spectra = []
     for im in thar_images:
         mode = im.mode
         calibration_set = calibs[mode]
-        thar_spectra += calibration_set.extract(im, savedir=opts.wavedir)
+        thar_spectra += calibration_set.extract(im, savedir=thardir)
 
     for thar in thar_spectra:
         mode = thar.mode
@@ -319,7 +315,9 @@ def run():
         else:
             logger.info(f'Wavelength calibration: {relpath(thar.filename, opts.outdir)}')
 
-            step_args = calibration_set.step_args
+            #step_args = calibration_set.step_args
+            # (instrument, mode, target, night, output_dir, order_range)
+            step_args = (instrument, mode, None, None, thardir, calibration_set.order_range)
             step_wavecal = WavelengthCalibrationFinalize(*step_args, **config['wavecal'])
 
             wavecal_master = (spec, head)
@@ -327,7 +325,7 @@ def run():
             wavecal_init = LineList.load(reference)
             wave, coef, linelist = step_wavecal.run(wavecal_master, wavecal_init)
             # Save the coefficients and linelist in npz file
-            savefile = join(opts.wavedir, thar.construct_filename(ext='.thar.npz', mode=mode, object=None))
+            savefile = join(thardir, thar.construct_filename(ext='.thar.npz', mode=mode, object=None))
             np.savez(savefile, wave=wave, coef=coef, linelist=linelist)
             # Save .ech compatible FITS file
             data['wave'] = wave 
