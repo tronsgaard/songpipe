@@ -8,6 +8,9 @@ from .plotting import plot_order_trace
 from .misc import construct_filename, header_insert
 from .spectrum import Spectrum
 
+from logging import getLogger
+logger = getLogger(__name__)
+
 """
 This module contains the `CalibrationSet` class, and the subclass `MultiFiberCalibrationSet`, 
 with methods that wrap the functionality of PyReduce.
@@ -61,9 +64,9 @@ class CalibrationSet():
         step_flat = Flat(*self.step_args, **self.config['flat'])
         if exists(step_flat.savefile):
             flat, flat_header = step_flat.load(self.mask)
-            print(f"Loaded existing master flat ({self.mode}) from {relpath(step_flat.savefile, self.output_dir)}.")
+            logger.info(f"Loaded existing master flat ({self.mode}) from {relpath(step_flat.savefile, self.output_dir)}.")
         else:
-            print(f'Assembling master flat ({self.mode})...')
+            logger.info(f'Assembling master flat ({self.mode})...')
             flats = self.images.filter(image_type='FLAT', mode=self.mode)
             flats.list()
             flat, flat_header = step_flat.run(flats.files, None, self.mask)
@@ -78,12 +81,12 @@ class CalibrationSet():
             step_orders = OrderTracing(*self.step_args, **self.config['orders'])
             if exists(step_orders.savefile):
                 orders, column_range = step_orders.load()
-                print(f"Loaded {len(orders)} order traces ({self.mode}) from {relpath(step_orders.savefile, self.output_dir)}.")
+                logger.info(f"Loaded {len(orders)} order traces ({self.mode}) from {relpath(step_orders.savefile, self.output_dir)}.")
             else:
-                print(f'Tracing orders in ({self.mode})...')
+                logger.info(f'Tracing orders in ({self.mode})...')
                 step_flat = self.steps['flat']
                 orders, column_range = step_orders.run([step_flat.savefile], self.mask, None)
-                print(f"Traced {len(orders)} orders in image {relpath(step_flat.savefile, self.output_dir)}.")
+                logger.info(f"Traced {len(orders)} orders in image {relpath(step_flat.savefile, self.output_dir)}.")
             self.data['orders'] = (orders, column_range)
             self.steps['orders'] = step_orders
             self.plot_trace()
@@ -94,22 +97,22 @@ class CalibrationSet():
         #name, _ = splitext(self.steps['orders'].savefile)
         savename = join(self.output_dir, f"plot_trace_{self.mode}.png")
         if self.skip_existing and exists(savename):
-            print(f'Order plot already exists: {relpath(savename, self.output_dir)}')
+            logger.info(f'Order plot already exists: {relpath(savename, self.output_dir)}')
         else:
             flat, fhead = self.data['flat']
             orders, column_range = self.data['orders']
             plot_order_trace(flat, orders, column_range, savename=savename)  # Custom plot routine
-            print(f'Order plot saved to: {relpath(savename, self.output_dir)}')
+            logger.info(f'Order plot saved to: {relpath(savename, self.output_dir)}')
 
     
     def measure_scattered_light(self):
-        print(f'Measuring scattered light in master flat...')
+        logger.info(f'Measuring scattered light in master flat...')
         step_scatter = BackgroundScatter(*self.step_args, **self.config['scatter'])
         if exists(step_scatter.savefile):
             scatter = step_scatter.load()
-            print(f'Loaded existing scattered light fit from {relpath(step_scatter.savefile, self.output_dir)}')
+            logger.info(f'Loaded existing scattered light fit from {relpath(step_scatter.savefile, self.output_dir)}')
         else:
-            print('Measuring scattered light')
+            logger.info('Measuring scattered light')
             scatter = step_scatter.run([self.steps['flat'].savefile], self.mask, None, self.data['orders'])
         self.data['scatter'] = scatter
         self.steps['scatter'] = step_scatter
@@ -123,9 +126,9 @@ class CalibrationSet():
         step_normflat = NormalizeFlatField(*self.step_args, **self.config['norm_flat'])
         if exists(step_normflat.savefile):
             norm, blaze = step_normflat.load()
-            print(f'Loaded existing normflat ({self.mode}) from {relpath(step_normflat.savefile, self.output_dir)}')
+            logger.info(f'Loaded existing normflat ({self.mode}) from {relpath(step_normflat.savefile, self.output_dir)}')
         else:
-            print(f'Normalizing {self.mode} flat field...')
+            logger.info(f'Normalizing {self.mode} flat field...')
             norm, blaze = step_normflat.run(self.data['flat'], self.data['orders'], self.data['scatter'], self.data['curvature'])
         self.data['norm_flat'] = (norm, blaze)
         self.steps['norm_flat'] = step_normflat
@@ -134,9 +137,9 @@ class CalibrationSet():
         step_science = ScienceExtraction(*self.step_args, **self.config['science'])
         self.steps['science'] = step_science
         orig_filename = basename(image.filename)
-        print(f'Working on file: {orig_filename}')
+        logger.info(f'Working on file: {orig_filename}')
         if self.check_extracted_exists(orig_filename, savedir=savedir) and skip_existing is True:
-            print(f'Extracted spectrum already exists for {orig_filename}')
+            logger.info(f'Extracted spectrum already exists for {orig_filename}')
             # FIXME: Check if wavelength solution needs to be appended
             return self.load_extracted(orig_filename, savedir=savedir)
         else:
@@ -152,7 +155,7 @@ class CalibrationSet():
             wave = self.wavelength_calibs[0]
         except IndexError:
             wave = None
-        print(f'Saving spectrum to file: {nameout}')
+        logger.info(f'Saving spectrum to file: {nameout}')
         makedirs(dirname(nameout), exist_ok=True)
         echelle.save(nameout, head, spec=spec, sig=sigma, wave=wave, columns=column_range)
         return [Spectrum(filename=nameout)]
@@ -238,7 +241,7 @@ class MultiFiberCalibrationSet(CalibrationSet):
                 whead, wave = self.sub_mode_calibs[sub_mode].wavelength_calibs[0]
             except IndexError:
                 whead, wave = None, None
-            print(f'Saving {nord} orders from mode {sub_mode} to file: {nameout}')
+            logger.info(f'Saving {nord} orders from mode {sub_mode} to file: {nameout}')
             makedirs(dirname(nameout), exist_ok=True)
             echelle.save(nameout, head, spec=spec[selected], sig=sigma[selected], columns=column_range[selected], wave=wave)
             results.append(Spectrum(filename=nameout))

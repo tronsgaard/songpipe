@@ -3,6 +3,7 @@ from os import makedirs
 import astropy.io.fits as fits
 import logging
 from logging.handlers import RotatingFileHandler
+logger = logging.getLogger(__name__)
 
 """
 This module contains various functions, e.g. FITS header manipulation, to be used by the other modules
@@ -82,13 +83,13 @@ def sanitize_header(hdr):
 
         elif key in new_header and value != new_header[key]:
             # If key already in header, but different value (warn the user)
-            print(f'Conflicting header values: {key}: "{value}" vs. "{new_header[key]}"')
+            logger.warning(f'Conflicting header values: {key}: "{value}" vs. "{new_header[key]}"')
             new_header.append((key, value, comment))
 
         else:
             # Otherwise, don't add to header (key/value pair matches existing)
             count_discarded += 1
-    print(f'{count_discarded} key/value pairs removed.')
+    logger.info(f'{count_discarded} key/value pairs removed.')
     return new_header
          
 
