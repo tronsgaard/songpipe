@@ -389,7 +389,7 @@ class ImageList(FrameList):
         else:
             raise KeyError(f'No such filename in list: {item}')
 
-    def list(self, add_keys=None, outfile=None):
+    def list(self, add_keys=None, outfile=None, silent=False):
         """
         Print a pretty list of filenames and some fits keywords.
         Add list of keys by using add_keys=['KEY1', 'KEY2', ...]
@@ -454,9 +454,14 @@ class ImageList(FrameList):
                 logger.error('Could not export nightlog to txt file. Continuing..')
                 logger.error(e)
         # Print
-        for l in lines:
-            print(l, end='')
-                    
+        if silent is not True:
+            print('------------------------')
+            for l in lines:
+                print(l, end='')
+            print('------------------------')
+            print(f'Total: {len(self.images)}')
+            print('------------------------')
+
 
     def summary(self):
         """Print summary of image types in the list"""
