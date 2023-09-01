@@ -116,6 +116,8 @@ def run():
                 images = None
             else:
                 logger.info(f'Loaded FITS headers from cache: {relpath(savename, opts.outdir)}')
+        except ImportError:
+            logger.info('Install dill to enable caching of FITS headers.')
         except (FileNotFoundError,):
             pass
         except Exception as e:
