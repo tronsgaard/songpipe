@@ -253,6 +253,7 @@ def run():
     from pyreduce.combine_frames import combine_calibrate
     from songpipe import CalibrationSet, MultiFiberCalibrationSet  # Modified version
 
+    logger = songpipe.misc.setup_logger(log_file, silent=opts.silent)  # Do this again to remove the pyreduce logger that loads on import
     logger.info(f'Setting up PyReduce (version {pyreduce.__version__})')
 
     # Create custom instrument
