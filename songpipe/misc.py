@@ -1,11 +1,9 @@
 from os.path import splitext, dirname, exists
 from os import makedirs
 import astropy.io.fits as fits
-import logging
-from logging.handlers import RotatingFileHandler
-import tqdm
 
-logger = logging.getLogger(__name__)
+from logging import getLogger
+logger = getLogger(__name__)
 
 """
 This module contains various functions, e.g. FITS header manipulation, to be used by the other modules
@@ -101,66 +99,3 @@ def apply_limit(array, limit):
         limit = (limit,)
     return array[slice(*limit)]
 
-# Logging
-class TqdmLoggingHandler(logging.Handler):
-    """
-    This logging handler prints log messages through the tqdm.write() function, 
-    ensuring that we don't break the tqdm progress bars (copied from pyreduce).
-    """
-    def __init__(self, level=logging.NOTSET):
-        super().__init__(level)
-
-    def emit(self, record):
-        try:
-            msg = self.format(record)
-            tqdm.tqdm.write(msg)
-            self.flush()
-        except (KeyboardInterrupt, SystemExit):
-            raise
-        except:
-            self.handleError(record)
-
-def setup_logger(log_file, name=None, silent=False, reset=True, debug=False):
-    """
-    name=None sets up the root logger
-    """
-
-    # Retrieve named logger and set log level
-    logger = logging.getLogger(name)
-    if debug is True:
-        logger.setLevel(logging.DEBUG)
-    else:
-        logger.setLevel(logging.INFO)
-    logging.captureWarnings(True)
-
-    # Reset logging handlers (pyreduce adds its own handlers when imported)
-    if reset is True:
-        logger.handlers.clear()
-
-    # Set up log file
-    makedirs(dirname(log_file), exist_ok=True)
-    log_file_exists = exists(log_file)  # Check if the log file already exists, if yes, we'll rename it (rotate it) in a second
-    file_handler = RotatingFileHandler(log_file, backupCount=10)  # RotatingFileHandler ensures that most recent old logs are renamed and preserved
-    if log_file_exists:
-        file_handler.doRollover()  # This renames the old log file(s) and creates a new file in its place
-    file_formatter = logging.Formatter('%(asctime)s %(levelname)s %(name)s %(message)s')  # Log columns
-    file_handler.setFormatter(file_formatter)
-    logger.addHandler(file_handler)
-
-    # Set up console log
-    if not silent:
-        #console_handler = logging.StreamHandler()  # Not compatible with tqdm progress bars
-        console_handler = TqdmLoggingHandler()
-
-        # Add colors if available
-        try:
-            import colorlog
-            console_formatter = colorlog.ColoredFormatter("%(log_color)s%(levelname)s - %(message)s")
-        except ImportError:
-            console_formatter = logging.Formatter('%(levelname)s - %(message)s')
-            print("Install colorlog for colored logging output")
-
-        console_handler.setFormatter(console_formatter)
-        logger.addHandler(console_handler)
-
-    return logger

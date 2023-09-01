@@ -1,11 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import sys
-from os.path import join, exists, relpath, splitext, basename, dirname
+from os.path import join, exists, relpath, dirname
 from os import makedirs
-from glob import glob
-import argparse
 import numpy as np
 import astropy.io.fits as fits
 
@@ -16,137 +13,35 @@ import matplotlib.pyplot as plt
 import songpipe
 
 # Default settings 
-# TODO: Move to a separate config file
+# TODO: Move to a separate config file?
 defaults = {
     'basedir': '/mnt/c/data/SONG/ssmtkent/',
 }
 
-# Set up command line arguments
-ap = argparse.ArgumentParser()
-# Directory structure
-ap.add_argument('datestr', metavar='date_string', type=str, default=None,
-                help='Night date (as a string), e.g. `20220702`')
-ap.add_argument('--basedir', type=str, default=defaults['basedir'],
-                help=f'Base directory (default: {defaults["basedir"]})')
-ap.add_argument('--rawdir', type=str, default=None,
-                help=f'Specify raw directory (default: <basedir>/star_spec/<date_string>/raw)')
-ap.add_argument('--outdir', type=str, default=None,
-                help=f'Specify raw directory (default: <basedir>/extr_spec/<date_string>)')
-ap.add_argument('--calibdir', type=str, default=None,
-                help=f'Specify calib directory (default: <basedir>/extr_spec/<date_string>/calib)')
-ap.add_argument('--logdir', type=str, default=None,
-                help=f'Specify log directory (default: <basedir>/extr_spec/<date_string>/log)')
-# Actions
-ap.add_argument('--debug', action='store_true',
-                help='Set log level to debug (log everything)')
-ap.add_argument('--plot', action='store_true',
-                help='Activate plotting in PyReduce')
-ap.add_argument('--reload-cache', action='store_true',
-                help='Ignore cached FITS headers and reload from files')
-ap.add_argument('--simple-extract', action='store_true',
-                help='Extract using simple summation across orders (faster than optimal extraction)')
-ap.add_argument('--silent', action='store_true',
-                help='Silent mode (useful when running in background)')
-ap.add_argument('--skip-flati2', action='store_true',
-                help='Skip extraction of FLATI2 spectra')
-ap.add_argument('--skip-fp', action='store_true',
-                help='Skip extraction of Fabry Perót spectra')
-# TODO: Implement these:
-#ap.add_argument('--ignore-existing', action='store_true',
-#                help='Ignore existing output files and run extraction again')
+# Select image class (single channel or high/low gain)
+# TODO: Should this be done automatically, by date or by analyzing the first FITS file?
+image_class = songpipe.HighLowImage  # For Mt. Kent
+# image_class = songpipe.Image  # For Tenerife (Not fully implemented)
+
 
 def run():
-    opts = ap.parse_args()
-
-    if opts.silent:
-        # Silence terminal output by redirecting stdout to /dev/null
-        devnull = open('/dev/null', 'w')
-        sys.stdout = devnull
-        sys.stderr = devnull  # tqdm progress bars are printed through stderr; pyreduce has no option to silence tqdm
-
-    if opts.rawdir is None:
-        # Default to <basedir>/star_spec/<date_string>/raw
-        opts.rawdir = join(opts.basedir, 'star_spec', opts.datestr, 'raw')
-    if opts.outdir is None:
-        # Default to <basedir>/extr_spec/<date_string>
-        opts.outdir = join(opts.basedir, 'extr_spec', opts.datestr)
-        makedirs(opts.outdir, exist_ok=True)
-    if opts.calibdir is None:
-        # Default to <basedir>/extr_spec/<date_string>/calib
-        opts.calibdir = join(opts.outdir, 'calib')
-        makedirs(opts.calibdir, exist_ok=True)
-    if opts.logdir is None:
-        # Default to <basedir>/extr_spec/<date_str>/log
-        opts.logdir = join(opts.outdir, 'log')
+    # This function defines and parses the command line arguments
+    opts = songpipe.running.parse_arguments(defaults)
 
     # Set up logging
     log_file = join(opts.logdir, f'songpipe.log')
-    logger = songpipe.misc.setup_logger(log_file, silent=opts.silent, debug=opts.debug)
+    logger = songpipe.running.setup_logger(log_file, silent=opts.silent, debug=opts.debug)
 
-    logger.info('SONG pipeline starting..')
-    logger.info('------------------------')
-    logger.info(f'Python version:    {sys.version.split(" ")[0]}')
-    logger.info(f'songpipe version:  {songpipe.__version__}')
-    logger.info('------------------------')
-    logger.info(f'Raw directory:     {opts.rawdir}')
-    logger.info(f'Output directory:  {opts.outdir}')
-    logger.info(f'Calib directory:   {opts.calibdir}')
-    logger.info(f'Log directory:     {opts.logdir}')
-    logger.info('------------------------')
-    logger.info(f'Plotting:          {opts.plot}')
-    logger.info(f'Reload cache:      {opts.reload_cache}')
-    logger.info(f'Simple extraction: {opts.simple_extract}')
-    logger.info(f'Silent:            {opts.silent}')
-    logger.info('------------------------')
+    # Log info about parameters and software versions
+    songpipe.running.log_summary(opts, image_class)
 
-    # Select image class (single channel or high/low gain)
-    # TODO: This needs to be done automatically, by date or by analyzing the first FITS file
-    image_class = songpipe.HighLowImage  # For Mt. Kent
-    # image_class = songpipe.Image  # For Tenerife (Not fully implemented)
-    logger.info(f'Image class: <{image_class.__module__}.{image_class.__name__}>')
-    logger.info('------------------------')
-
-    # Load all FITS headers as Image objects
-    # Objects are saved to a dill file called .songpipe_cache, saving time if we need to run the pipeline again
-    savename = join(opts.outdir, ".songpipe_cache")
-    images = None
-    if opts.reload_cache is False:
-        try:
-            import dill  # Similar to, yet better than, pickle
-            with open(savename, 'rb') as h:
-                images, version = dill.load(h)
-            if version != songpipe.__version__:
-                logger.warning("Cache version mismatch.")
-                images = None
-            else:
-                logger.info(f'Loaded FITS headers from cache: {relpath(savename, opts.outdir)}')
-        except ImportError:
-            logger.info('Install dill to enable caching of FITS headers.')
-        except (FileNotFoundError,):
-            pass
-        except Exception as e:
-            logger.warning(e)
-            logger.warning('Could not reload FITS headers from cache')
-    # If images is still None, it means we need to load the FITS headers from their source
-    if images is None:
-        logger.info('Loading FITS headers from raw images...')
-        # The following line loads all *.fits files from the raw directory
-        images = songpipe.ImageList.from_filemask(join(opts.rawdir, '*.fits'), image_class=image_class, silent=opts.silent)
-        try:
-            # Save objects for next time
-            import dill
-            with open(savename, 'wb') as h:
-                dill.dump((images, songpipe.__version__), h)
-        except Exception as e:
-            logger.warning(e)
-            logger.warning('Could not save cache. Continuing...')
-
-    print('------------------------')
-    images.list(outfile=join(opts.outdir, '000_list.txt'))
-    print('------------------------')
-    print(f'Total: {len(images)} images')
-    print('------------------------')
-
+    # This function loads the header of every FITS file matching the filemask 
+    # and returns a list of <Image> objects. Additionally, the objects are stored
+    # to disk in a single file (<outdir>/.songpipe_cache) using `dill` (similar to `pickle`).
+    # This speeds up the loading if the pipeline needs to run again.
+    filemask = join(opts.rawdir, '*.fits')
+    images = songpipe.running.load_images(filemask, image_class, outdir=opts.outdir, 
+                                          reload_cache=opts.reload_cache, silent=opts.silent)
 
     # Assemble master bias
     master_bias_filename = join(opts.outdir, 'prep/master_bias.fits')
@@ -255,7 +150,7 @@ def run():
     from pyreduce.combine_frames import combine_calibrate
     from songpipe import CalibrationSet, MultiFiberCalibrationSet  # Modified version
 
-    logger = songpipe.misc.setup_logger(log_file, silent=opts.silent)  # Do this again to remove the pyreduce logger that loads on import
+    logger = songpipe.running.setup_logger(log_file, silent=opts.silent)  # Do this again to remove the pyreduce logger that loads on import
     logger.info(f'Setting up PyReduce (version {pyreduce.__version__})')
 
     # Create custom instrument
