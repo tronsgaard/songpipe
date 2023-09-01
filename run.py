@@ -45,11 +45,13 @@ ap.add_argument('--simple-extract', action='store_true',
                 help='Extract using simple summation across orders (faster than optimal extraction)')
 ap.add_argument('--silent', action='store_true',
                 help='Silent mode (useful when running in background)')
+ap.add_argument('--skip-flati2', action='store_true',
+                help='Skip extraction of FLATI2 spectra')
+ap.add_argument('--skip-fp', action='store_true',
+                help='Skip extraction of Fabry Perót spectra')
 # TODO: Implement these:
-ap.add_argument('--prep-only', action='store_true',
-                help='Prepare files only - stop before PyReduce extraction')
-ap.add_argument('--ignore-existing', action='store_true',
-                help='Ignore existing output files and run extraction again')
+#ap.add_argument('--ignore-existing', action='store_true',
+#                help='Ignore existing output files and run extraction again')
 
 def run():
     opts = ap.parse_args()
