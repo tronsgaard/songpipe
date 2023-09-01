@@ -37,6 +37,8 @@ ap.add_argument('--calibdir', type=str, default=None,
 ap.add_argument('--logdir', type=str, default=None,
                 help=f'Specify log directory (default: <basedir>/extr_spec/<date_string>/log)')
 # Actions
+ap.add_argument('--debug', action='store_true',
+                help='Set log level to debug (log everything)')
 ap.add_argument('--plot', action='store_true',
                 help='Activate plotting in PyReduce')
 ap.add_argument('--reload-cache', action='store_true',
@@ -79,7 +81,7 @@ def run():
 
     # Set up logging
     log_file = join(opts.logdir, f'songpipe.log')
-    logger = songpipe.misc.setup_logger(log_file, silent=opts.silent)
+    logger = songpipe.misc.setup_logger(log_file, silent=opts.silent, debug=opts.debug)
 
     logger.info('SONG pipeline starting..')
     logger.info('------------------------')

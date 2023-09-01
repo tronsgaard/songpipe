@@ -120,14 +120,17 @@ class TqdmLoggingHandler(logging.Handler):
         except:
             self.handleError(record)
 
-def setup_logger(log_file, name=None, level=logging.INFO, silent=False, reset=True):
+def setup_logger(log_file, name=None, silent=False, reset=True, debug=False):
     """
     name=None sets up the root logger
     """
 
     # Retrieve named logger and set log level
     logger = logging.getLogger(name)
-    logger.setLevel(level)
+    if debug is True:
+        logger.setLevel(logging.DEBUG)
+    else:
+        logger.setLevel(logging.INFO)
     logging.captureWarnings(True)
 
     # Reset logging handlers (pyreduce adds its own handlers when imported)
