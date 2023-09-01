@@ -135,7 +135,7 @@ class CalibrationSet():
         self.steps['science'] = step_science
         orig_filename = basename(image.filename)
         print(f'Working on file: {orig_filename}')
-        if self.check_extracted_exists(orig_filename) and skip_existing is True:
+        if self.check_extracted_exists(orig_filename, savedir=savedir) and skip_existing is True:
             print(f'Extracted spectrum already exists for {orig_filename}')
             # FIXME: Check if wavelength solution needs to be appended
             return self.load_extracted(orig_filename, savedir=savedir)
