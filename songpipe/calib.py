@@ -239,6 +239,7 @@ class MultiFiberCalibrationSet(CalibrationSet):
             except IndexError:
                 whead, wave = None, None
             print(f'Saving {nord} orders from mode {sub_mode} to file: {nameout}')
+            makedirs(dirname(nameout), exist_ok=True)
             echelle.save(nameout, head, spec=spec[selected], sig=sigma[selected], columns=column_range[selected], wave=wave)
             results.append(Spectrum(filename=nameout))
         return results
