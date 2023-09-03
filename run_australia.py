@@ -231,25 +231,32 @@ def run():
 
         calibration_set.wavelength_calibs.append((head, wave))
 
-    # Extract star spectra
-    for im in prep_images.filter(image_type='STAR'):
+    # Extract specific file
+    if opts.extract is not None:
+        files_to_extract = songpipe.ImageList.from_filemask(opts.extract)
+    else:
+        # Extract star spectra
+        files_to_extract = prep_images.filter(image_type='STAR')
+
+    for im in files_to_extract:
         mode = im.mode
         if im.mode == 'UNKNOWN':
             mode = 'F12'  # Extract as F12 if mode is unknown (Mt. Kent)
         calibration_set = calibs[mode]
         calibration_set.extract(im, savedir=opts.outdir)
 
-    # Extract FlatI2
-    if opts.skip_flati2 is not True:
-        for im in prep_images.filter(image_type='FLATI2'):
-            calibration_set = calibs[im.mode]
-            calibration_set.extract(im, savedir=join(opts.outdir, 'flati2'))
+    if opts.extract is not None:
+        # Extract FlatI2
+        if opts.skip_flati2 is not True:
+            for im in prep_images.filter(image_type='FLATI2'):
+                calibration_set = calibs[im.mode]
+                calibration_set.extract(im, savedir=join(opts.outdir, 'flati2'))
 
-    # Extract FlatI2
-    if opts.skip_fp is not True:
-        for im in prep_images.filter(image_type='FP'):
-            calibration_set = calibs[im.mode]
-            calibration_set.extract(im, savedir=join(opts.outdir, 'fp'))
+        # Extract FlatI2
+        if opts.skip_fp is not True:
+            for im in prep_images.filter(image_type='FP'):
+                calibration_set = calibs[im.mode]
+                calibration_set.extract(im, savedir=join(opts.outdir, 'fp'))
 
     print('------------------------')
 

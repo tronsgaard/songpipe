@@ -33,6 +33,8 @@ def parse_arguments(defaults):
     ap.add_argument('--logdir', type=str, default=None,
                     help=f'Specify log directory (default: <basedir>/extr_spec/<date_string>/log)')
     # Actions
+    ap.add_argument('--extract', action='store',
+                    help='Path to a single file to extract (prep file)')
     ap.add_argument('--plot', action='store_true',
                     help='Activate plotting in PyReduce')
     ap.add_argument('--reload-cache', action='store_true',
@@ -159,6 +161,7 @@ def log_summary(opts, image_class):
     logger.info(f'Calib directory:   {opts.calibdir}')
     logger.info(f'Log directory:     {opts.logdir}')
     logger.info('------------------------')
+    logger.info(f'Extract:           {opts.extract}')
     logger.info(f'Plotting:          {opts.plot}')
     logger.info(f'Reload cache:      {opts.reload_cache}')
     logger.info(f'Simple extraction: {opts.simple_extract}')
