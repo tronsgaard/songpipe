@@ -73,8 +73,12 @@ class CalibrationSet():
         self.data['flat'] = (flat, flat_header)
         self.steps['flat'] = step_flat
 
-    def trace_orders(self):
-        """Trace orders in single-fiber modes"""
+    def trace_orders(self, ymin=-0, ymax=999999, target_nord=None):
+        """
+        Trace orders in single-fiber mode
+        ymin,ymax is used for trimming extreme orders, pixels refer to column 2048
+        target_nord is the expected number of orders
+        """
         try:
             return self.data['orders']
         except KeyError:
@@ -87,6 +91,25 @@ class CalibrationSet():
                 step_flat = self.steps['flat']
                 orders, column_range = step_orders.run([step_flat.savefile], self.mask, None)
                 logger.info(f"Traced {len(orders)} orders in image {relpath(step_flat.savefile, self.output_dir)}.")
+
+            # Trim extreme orders
+            # ymin and ymax refers to column 2048
+            # Evaluate each order trace polynomial in column 2048 and compare with ymin, ymax
+            ypos = np.hstack([np.polyval(orders[i], [2048]) for i in range(len(orders))])
+            ok = (ypos >= ymin) & (ypos <= ymax)
+            # Verify that we found the expected number of orders between ymin and ymax
+            try:
+                assert (nord := np.sum(ok) == target_nord)
+            except AssertionError:
+                logger.warning(f'Incorrect number of orders found ({nord}). This may lead to unexpected results.')
+            # Remove orders from (orders,column_range) tuple 
+            if np.sum(ok==False) > 0:
+                logger.info(f'Trimming orders: {np.where(ok==False)[0].tolist()}')
+                orders, column_range = (orders[ok], column_range[ok])
+                # override order tracing file
+                np.savez(step_orders.savefile, orders=orders, column_range=column_range)
+                logger.info("Updated order tracing file: %s", step_orders.savefile)
+
             self.data['orders'] = (orders, column_range)
             self.steps['orders'] = step_orders
             self.plot_trace()
@@ -193,13 +216,14 @@ class MultiFiberCalibrationSet(CalibrationSet):
             mode = calibration_set.mode
             self.sub_mode_calibs[mode] = calibration_set
 
-    def trace_orders(self):
+    def trace_orders(self, ymin=-0, ymax=999999, target_nord=None):
         """Combine order trace for multi-fiber mode"""
 
         # Fetch single-fiber traces
         orders, column_range, order_modes = [], [], []
         for mode, calibs in self.sub_mode_calibs.items():
-            sub_orders, sub_column_range = calibs.trace_orders()  # Get it if already traced, otherwise run trace on the other fiber
+            # Get it if already traced, otherwise run trace on the other fiber
+            sub_orders, sub_column_range = calibs.trace_orders(ymin=ymin, ymax=ymax, target_nord=target_nord)  
             orders.append(sub_orders)
             column_range.append(sub_column_range)
             order_modes += [mode]*len(sub_orders)  # Append a list of e.g. ['F1', 'F1', ..., 'F1', 'F1']

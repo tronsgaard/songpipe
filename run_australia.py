@@ -179,15 +179,14 @@ def run():
         calibration_set.combine_flats()
 
     for mode, calibration_set in calibs.items():
-        calibration_set.trace_orders()
+        #ymin, ymax = (156., 3766.)  # 69 orders from 4211 - 7971 Å 
+        calibration_set.trace_orders(ymin=156., ymax=3766., target_nord=69)
 
     # Measure scattered light from flat
     for mode, calibration_set in calibs.items():
         calibration_set.measure_scattered_light()
         calibration_set.measure_curvature()  # Dummy - not useful with fiber
         calibration_set.normalize_flat()
-
-    # TODO: limit order range
 
     # Extract and calibrate all ThAr spectra
     thar_images = prep_images.filter(image_type='THAR')
@@ -234,8 +233,6 @@ def run():
             echelle.save(thar.filename, head, **data)
 
         calibration_set.wavelength_calibs.append((head, wave))
-
-    print('------------------------')
 
     # Extract star spectra
     for im in prep_images.filter(image_type='STAR'):
