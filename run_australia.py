@@ -146,8 +146,6 @@ def run():
     from pyreduce.reduce import WavelengthCalibrationFinalize
     from pyreduce.wavelength_calibration import LineList
     from pyreduce import echelle
-    from pyreduce.util import start_logging
-    from pyreduce.combine_frames import combine_calibrate
     from songpipe import CalibrationSet, MultiFiberCalibrationSet  # Modified version
 
     logger = songpipe.running.setup_logger(log_file, silent=opts.silent)  # Do this again to remove the pyreduce logger that loads on import
@@ -156,7 +154,6 @@ def run():
     # Create custom instrument
     instrument = create_custom_instrument("SONG-Australia", mask_file=None, wavecal_file=None)
     mask = np.zeros((4096, 4096))  # TODO: Load an actual bad pixel mask
-    bias, bhead = None, None  # Already subtracted
 
     # Load default config
     config = get_configuration_for_instrument("pyreduce", plot=opts.plot)
