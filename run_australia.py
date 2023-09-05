@@ -160,6 +160,8 @@ def run():
     
     # Modify default config
     config['wavecal']['correlate_cols'] = 512
+    config['wavecal']['threshold'] = 1000
+    config['norm_flat']['smooth_slitfunction'] = 2 
     if opts.simple_extract:
         config['science']['collapse_function'] = 'sum' 
         config['science']['extraction_method'] = 'arc'  # SIMPLE EXTRACTION TO SPEED THINGS UP
