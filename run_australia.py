@@ -25,6 +25,8 @@ image_class = songpipe.HighLowImage  # For Mt. Kent
 
 
 def run():
+    """This function is called when running this file from command line"""
+
     # This function defines and parses the command line arguments
     opts = songpipe.running.parse_arguments(defaults)
 
@@ -34,6 +36,14 @@ def run():
 
     # Log info about parameters and software versions
     songpipe.running.log_summary(opts, image_class)
+
+    try:
+        run_inner(opts, logger)
+    except Exception as e:
+        logger.exception(e)
+
+def run_inner(opts, logger):
+    """The inner run function ensures that we can catch errors and log them properly, even when using silent mode"""
 
     # This function loads the header of every FITS file matching the filemask 
     # and returns a list of <Image> objects. Additionally, the objects are stored
