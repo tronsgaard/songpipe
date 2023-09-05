@@ -169,7 +169,7 @@ def run():
     # Dump config to json file
     import json
     json_outfile = join(opts.logdir, 'config.json')
-    with open(json_outfile) as h:
+    with open(json_outfile, 'w') as h:
         h.write(json.dumps(config, indent=2))
 
     # Set up and link calibration modes for Mt. Kent data
