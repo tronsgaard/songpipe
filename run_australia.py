@@ -164,6 +164,12 @@ def run():
         config['science']['collapse_function'] = 'sum' 
         config['science']['extraction_method'] = 'arc'  # SIMPLE EXTRACTION TO SPEED THINGS UP
 
+    # Dump config to json file
+    import json
+    json_outfile = join(opts.logdir, 'config.json')
+    with open(json_outfile) as h:
+        h.write(json.dumps(config, indent=2))
+
     # Set up and link calibration modes for Mt. Kent data
     calibs = {}
     calibs['F1'] = CalibrationSet(prep_images, opts.calibdir, config, mask, instrument, "F1")
