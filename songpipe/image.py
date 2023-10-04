@@ -225,6 +225,7 @@ class Image(Frame):
 
 
 class HighLowImage(Image):
+    """Represents an image with separate high- and low-gain channels"""
     def __init__(self, high_gain_image=None, low_gain_image=None, filename=None):
         if high_gain_image is not None or low_gain_image is not None:
             assert isinstance(high_gain_image, Image)
@@ -473,7 +474,9 @@ class ImageList(FrameList):
             print(k, n)
 
     def get_exptimes(self, threshold=0.1):
-        """Return a list of exptimes"""
+        """
+        Return a list of all exptimes, excluding bias images and times shorter than `threshold` (default: 0.1 s)
+        """
         exptimes = np.unique([im.exptime for im in self.images if im.type != 'BIAS'])
         exptimes = exptimes[exptimes > threshold]
         return exptimes.tolist()
@@ -548,13 +551,17 @@ class ImageList(FrameList):
         return len(res)
 
     def combine(self, method='median', **kwargs):
-        logger.info(f'Combining {len(self)} images using method "{method}".')
+        """Combine all images in the list using specified method"""
+        # Parse method name and get function
         if method == 'median':
             combine_function = median_combine
         elif method == 'mean':
             combine_function = mean_combine
         else:
             raise ValueError(f'Unknown method "{method}"!')
+        # Call the function
+        logger.info(f'Combining {len(self)} images using method "{method}".')
         result = self.image_class.combine(self.images, combine_function, **kwargs)
         logger.info('Combine done!')
         return result
+    
