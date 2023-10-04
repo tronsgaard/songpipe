@@ -541,6 +541,11 @@ class ImageList(FrameList):
         images = apply_limit(images, limit)
         # Return new ImageList
         return ImageList(images)
+    
+    def count(self, **kwargs):
+        """Passes all arguments to self.filter() and counts the number of frames returned"""
+        res = self.filter(**kwargs)
+        return len(res)
 
     def combine(self, method='median', **kwargs):
         logger.info(f'Combining {len(self)} images using method "{method}".')
