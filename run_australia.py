@@ -12,31 +12,29 @@ import matplotlib.pyplot as plt
 
 import songpipe
 
-# Default settings 
-# TODO: Move to a separate config file?
-defaults = {
-    'basedir': '/mnt/c/data/SONG/ssmtkent/',
-}
+# SONGpipe settings
+BASEDIR = '/mnt/c/data/SONG/ssmtkent/'
 
 # Select image class (single channel or high/low gain)
 # TODO: Should this be done automatically, by date or by analyzing the first FITS file?
-image_class = songpipe.HighLowImage  # For Mt. Kent
-# image_class = songpipe.Image  # For Tenerife (Not fully implemented)
+IMAGE_CLASS = HighLowImage  # For Mt. Kent
+# IMAGE_CLASS = Image  # For Tenerife (Not fully implemented)
 
 
 def run():
     """This function is called when running this file from command line"""
 
     # This function defines and parses the command line arguments
-    opts = songpipe.running.parse_arguments(defaults)
+    opts = songpipe.running.parse_arguments(BASEDIR)
 
     # Set up logging
-    log_file = join(opts.logdir, f'songpipe.log')
+    log_file = join(opts.logdir, 'songpipe.log')
     logger = songpipe.running.setup_logger(log_file, silent=opts.silent, debug=opts.debug)
 
     # Log info about parameters and software versions
-    songpipe.running.log_summary(opts, image_class)
+    songpipe.running.log_summary(opts, IMAGE_CLASS)
 
+    # Catch and log any error arising within the run_inner() function
     try:
         run_inner(opts, logger)
     except Exception as e:
@@ -50,7 +48,7 @@ def run_inner(opts, logger):
     # to disk in a single file (<outdir>/.songpipe_cache) using `dill` (similar to `pickle`).
     # This speeds up the loading if the pipeline needs to run again.
     filemask = join(opts.rawdir, '*.fits')
-    images = songpipe.running.load_images(filemask, image_class, outdir=opts.outdir, 
+    images = songpipe.running.load_images(filemask, IMAGE_CLASS, outdir=opts.outdir, 
                                           reload_cache=opts.reload_cache, silent=opts.silent)
 
     # Assemble master bias
@@ -58,7 +56,7 @@ def run_inner(opts, logger):
     if exists(master_bias_filename):
         filename = relpath(master_bias_filename, opts.outdir)
         logger.info(f'Master bias already exists - loading from {filename}')
-        master_bias = image_class(filename=master_bias_filename)
+        master_bias = IMAGE_CLASS(filename=master_bias_filename)
     else:
         logger.info('Assembling master bias...')
         bias_list = images.filter(image_type='BIAS')
@@ -78,7 +76,8 @@ def run_inner(opts, logger):
         if exists(master_dark_filename):
             filename = relpath(master_dark_filename, opts.outdir)  # For nicer console output
             logger.debug(f'Master dark ({exptime:.0f}s) already exists - loading from {filename}')
-            master_darks[exptime] = image_class(filename=master_dark_filename)
+            # Load master dark with proper image class
+            master_darks[exptime] = IMAGE_CLASS(filename=master_dark_filename)
         else:
             dark_list = images.filter(image_type='DARK', exptime=exptime)  # TODO: Exptime tolerance
             if len(dark_list) == 0:

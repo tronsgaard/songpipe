@@ -1,3 +1,5 @@
+"""Tools for running songpipe"""
+
 import sys
 from os.path import join, dirname, exists
 from os import makedirs
@@ -11,7 +13,7 @@ import tqdm
 
 logger = logging.getLogger(__name__)
 
-def parse_arguments(defaults):
+def parse_arguments(basedir):
     """
     This function parses the supplied command line arguments 
     using argparse and returns the `opts` object
@@ -22,8 +24,8 @@ def parse_arguments(defaults):
     # Directory structure
     ap.add_argument('datestr', metavar='date_string', type=str, default=None,
                     help='Night date (as a string), e.g. `20220702`')
-    ap.add_argument('--basedir', type=str, default=defaults['basedir'],
-                    help=f'Base directory (default: {defaults["basedir"]})')
+    ap.add_argument('--basedir', type=str, default=basedir,
+                    help=f'Base directory (default: {basedir})')
     ap.add_argument('--rawdir', type=str, default=None,
                     help=f'Specify raw directory (default: <basedir>/star_spec/<date_string>/raw)')
     ap.add_argument('--outdir', type=str, default=None,
