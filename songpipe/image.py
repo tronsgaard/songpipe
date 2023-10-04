@@ -479,7 +479,30 @@ class ImageList(FrameList):
         return exptimes.tolist()
 
     def filter(self, object_contains=None, object_exact=None, filename_contains=None, filename_exact=None,
-               image_type=None, mode=None, exptime=None, limit=None):
+               image_type=None, image_type_exclude=None, mode=None, exptime=None, exptime_tolerance=0.1, 
+               limit=None):
+        """
+        Filter list by various criteria and return result as a new list
+
+        Arguments:
+            object_contains :   Filter by partial object name
+            object_exact :      Filter by exact object name
+            filename_contains : Filter by partial filename
+            filename_exact :    Filter by exact filename
+            image_type :        Filter by image type or list of image types (e.g. `BIAS`, `STAR`)
+            image_type_exclude: Exclude image type or list of image types
+            mode :              Filter by instrument mode or list of modes (e.g. `F1`)
+            exptime :           Filter by exposure time
+            exptime_tolerance : Tolerance used for exposure time filter (default: 0.1 s)
+            limit :             Limit number of frames returned (default: unlimited)
+        """
+
+        def _ensure_list(x):
+            """Ensure that x is a list/iterable"""
+            if isinstance(x, str) or not hasattr(x, '__iter__'):
+                x = [x]
+            return x
+        
         mask = [True] * len(self)
         for k, im in enumerate(self.images):
             if object_contains is not None and object_contains not in im.object:
@@ -495,18 +518,21 @@ class ImageList(FrameList):
                 mask[k] = False
                 continue
             if image_type is not None:
-                if isinstance(image_type, str) or not hasattr(image_type, '__iter__'):
-                    image_type = [image_type]
+                image_type = _ensure_list(image_type)
                 if im.type not in image_type:
                     mask[k] = False
                     continue
+            if image_type_exclude is not None:
+                image_type_exclude = _ensure_list(image_type_exclude)
+                if im.type in image_type_exclude:
+                    mask[k] = False
+                    continue
             if mode is not None:
-                if isinstance(mode, str) or not hasattr(mode, '__iter__'):
-                    mode = [mode]
+                mode = _ensure_list(mode)
                 if im.mode not in mode:
                     mask[k] = False
                     continue
-            if exptime is not None and exptime != im.exptime:
+            if exptime is not None and np.abs(exptime - im.exptime) > exptime_tolerance:
                 mask[k] = False
                 continue
         # Apply mask

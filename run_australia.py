@@ -96,15 +96,12 @@ def run_inner(opts, logger):
             master_darks[exptime].subtract_bias(master_bias, inplace=True)  # Important!
             master_darks[exptime].save_fits(master_dark_filename, overwrite=True, dtype='float32')
 
-    # Loop over all images except bias and darks
-    loop_images = images.images
-    loop_images = [im for im in loop_images if im.type not in ('BIAS', 'DARK')]
-
     # Prepare images for extraction by subtracting master bias and dark and merging high-low gain channels
     logger.info('------------------------')
     logger.info('Preparing images...')
     prep_images = []
-    for im_orig in loop_images:
+    loop_images = images.filter(image_type_exclude=('BIAS', 'DARK'))
+    for im_orig in loop_images.images:
         out_filename = join(opts.outdir, 'prep', im_orig.construct_filename(suffix='prep'))
         if exists(out_filename):
             logger.debug(f'File already exists - loading from {relpath(out_filename, opts.outdir)}')
