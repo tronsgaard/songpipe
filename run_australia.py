@@ -3,14 +3,9 @@
 
 from os.path import join, exists, relpath, dirname
 from os import makedirs
-import numpy as np
-import astropy.io.fits as fits
 
-import matplotlib
-matplotlib.use('Agg')  # Don't show plots..
-import matplotlib.pyplot as plt
-
-import songpipe
+import songpipe.running
+from songpipe.image import Image, HighLowImage, ImageList
 
 # SONGpipe settings
 BASEDIR = '/mnt/c/data/SONG/ssmtkent/'
@@ -43,6 +38,13 @@ def run():
 
 def run_inner(opts, logger):
     """The inner run function ensures that we can catch errors and log them properly, even when using silent mode"""
+    # Heavier import moved here, to make the program start faster
+    import numpy as np
+    import astropy.io.fits as fits
+
+    import matplotlib
+    matplotlib.use('Agg')  # Don't show plots..
+    import matplotlib.pyplot as plt
 
     # This function loads the header of every FITS file matching the filemask 
     # and returns a list of <Image> objects. Additionally, the objects are stored
@@ -141,7 +143,7 @@ def run_inner(opts, logger):
         #print('----')
 
     # Wrap list of prepared images in ImageList class
-    prep_images = songpipe.ImageList(prep_images)
+    prep_images = ImageList(prep_images)
 
     # No more need for bias and darks - clear variables to free memory..
     master_bias.clear_data()
@@ -256,7 +258,7 @@ def run_inner(opts, logger):
 
     # Extract specific file
     if opts.extract is not None:
-        files_to_extract = songpipe.ImageList.from_filemask(opts.extract)
+        files_to_extract = ImageList.from_filemask(opts.extract)
     else:
         # Extract star spectra
         files_to_extract = prep_images.filter(image_type='STAR')
