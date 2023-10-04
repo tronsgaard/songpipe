@@ -14,6 +14,7 @@ import songpipe
 
 # SONGpipe settings
 BASEDIR = '/mnt/c/data/SONG/ssmtkent/'
+MIN_BIAS_IMAGES = 11  # Minimum number of bias images
 
 # Select image class (single channel or high/low gain)
 # TODO: Should this be done automatically, by date or by analyzing the first FITS file?
@@ -51,16 +52,23 @@ def run_inner(opts, logger):
     images = songpipe.running.load_images(filemask, IMAGE_CLASS, outdir=opts.outdir, 
                                           reload_cache=opts.reload_cache, silent=opts.silent)
 
-    # Assemble master bias
+    # MASTER BIAS
+    # Define where the master bias should be saved/loaded from
     master_bias_filename = join(opts.outdir, 'prep/master_bias.fits')
     if exists(master_bias_filename):
+        # Filename relative to outdir (for logging only)
         filename = relpath(master_bias_filename, opts.outdir)
+        # Load master bias with proper image class
         logger.info(f'Master bias already exists - loading from {filename}')
         master_bias = IMAGE_CLASS(filename=master_bias_filename)
     else:
         logger.info('Assembling master bias...')
+        # Fetch a list of bias images
         bias_list = images.filter(image_type='BIAS')
         bias_list.list()
+        # Assert that we have enough images
+        assert len(bias_list) >= MIN_BIAS_IMAGES
+        # Assemble master bias using specified combine function
         master_bias = bias_list.combine(method='median', silent=opts.silent)
         master_bias.save_fits(master_bias_filename, overwrite=True, dtype='float32')
 
