@@ -278,7 +278,7 @@ def run_inner(opts, logger):
         calibration_set = calibs[mode]
         calibration_set.extract(im, savedir=opts.outdir)
 
-    if opts.extract is not None:
+    if opts.extract is None:
         # Extract FlatI2
         if opts.skip_flati2 is not True:
             for im in prep_images.filter(image_type='FLATI2'):
