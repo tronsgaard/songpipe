@@ -74,40 +74,48 @@ def run_inner(opts, logger):
         master_bias = bias_list.combine(method='median', silent=opts.silent)
         master_bias.save_fits(master_bias_filename, overwrite=True, dtype='float32')
 
-    # Assemble master darks
+    # MASTER DARKS
     logger.info('------------------------')
-    logger.info('Assembling master darks...')
-    master_darks = {}  # Dict of darks for various exptimes
+    # Get list of all exptimes
     exptimes = images.get_exptimes()
     logger.info(f'Exptimes (seconds): {exptimes}')
+
+    master_darks = {}  # Dict of master dark for each exptime
     for exptime in exptimes:
-        # For each dark exptime, construct a master dark
+        # Define where the master dark for this exptime should be saved/loaded from
         master_dark_filename = join(opts.outdir, f'prep/master_dark_{exptime:.0f}s.fits')
         if exists(master_dark_filename):
+            # Filename relative to outdir (for logging only)
             filename = relpath(master_dark_filename, opts.outdir)  # For nicer console output
             logger.debug(f'Master dark ({exptime:.0f}s) already exists - loading from {filename}')
             # Load master dark with proper image class
             master_darks[exptime] = IMAGE_CLASS(filename=master_dark_filename)
         else:
+            logger.info(f'Assembling {exptime} s master dark')
             dark_list = images.filter(image_type='DARK', exptime=exptime)  # TODO: Exptime tolerance
             if len(dark_list) == 0:
                 logger.warning(f'No darks available for exptime {exptime} s')  # TODO: Handle missing darks
                 continue
-            logger.info(f'Building {exptime} s master dark')
+
+            # Assemble master dark using the specified combine function
             master_darks[exptime] = dark_list.combine(method='median', silent=opts.silent)
             master_darks[exptime].subtract_bias(master_bias, inplace=True)  # Important!
             master_darks[exptime].save_fits(master_dark_filename, overwrite=True, dtype='float32')
 
-    # Prepare images for extraction by subtracting master bias and dark and merging high-low gain channels
+    # PREPARE IMAGES
+    # Prepare for extraction by subtracting master bias and dark, then merge high-low gain channels
     logger.info('------------------------')
     logger.info('Preparing images...')
     prep_images = []
+    # Loop over all images except bias and darks
     loop_images = images.filter(image_type_exclude=('BIAS', 'DARK'))
     for im_orig in loop_images.images:
+        # Define where this prepared image should be saved/loaded from
         out_filename = join(opts.outdir, 'prep', im_orig.construct_filename(suffix='prep'))
         if exists(out_filename):
             logger.debug(f'File already exists - loading from {relpath(out_filename, opts.outdir)}')
-            prep_images.append(songpipe.Image(filename=out_filename))
+            im = Image(filename=out_filename)
+            prep_images.append(im)
         else:
             logger.info(f'Reducing image: {relpath(im_orig.filename, opts.rawdir)}')
             logger.info('Subtracting master bias...')
@@ -117,7 +125,7 @@ def run_inner(opts, logger):
             # Select master dark based on exptime
             dark_exptimes = np.array([0] + list(master_darks.keys()))
             k = np.argmin(np.abs(dark_exptimes - im.exptime))
-            dark_exptime = dark_exptimes[k]  # Make this more flexible
+            dark_exptime = dark_exptimes[k]  # TODO: Make this more flexible
             if dark_exptime > 0:
                 logger.info(f'Subtracting {dark_exptime}s master dark...')
                 im = im.subtract_dark(master_darks[dark_exptimes[k]])
