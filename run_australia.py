@@ -284,7 +284,7 @@ def run_inner(opts, logger):
         if im.mode == 'UNKNOWN':
             mode = 'F12'  # Extract as F12 if mode is unknown (Mt. Kent)
         calibration_set = calibs[mode]
-        calibration_set.extract(im, savedir=opts.outdir)
+        calibration_set.extract(im, savedir=join(opts.outdir, 'star'))
 
     if opts.extract is None:
         # Extract FlatI2
