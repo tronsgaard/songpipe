@@ -12,6 +12,7 @@ BASEDIR = '/mnt/c/data/SONG/ssmtkent/'
 MIN_BIAS_IMAGES = 11  # Minimum number of bias images
 MIN_DARK_IMAGES = 5   # Minimum number of dark images
 MIN_DARK_EXPTIME = 10.0  # Ignore if darks are missing for exposures shorter than this (seconds)
+MIN_FLAT_IMAGES = 11  # Minimum number of flat images
 
 # Select image class (single channel or high/low gain)
 # TODO: Should this be done automatically, by date or by analyzing the first FITS file?
@@ -213,7 +214,7 @@ def run_inner(opts, logger):
 
     # Run calibration steps via CalibrationSet objects
     for mode, calibration_set in calibs.items():
-        calibration_set.combine_flats()
+        calibration_set.combine_flats(min_flat_images=MIN_FLAT_IMAGES)
 
     for mode, calibration_set in calibs.items():
         #ymin, ymax = (156., 3766.)  # 69 orders from 4211 - 7971 Å 

@@ -59,7 +59,7 @@ class CalibrationSet():
         # (instrument, mode, target, night, output_dir, order_range)
         return (self.instrument, self.mode, None, None, self.output_dir, self.order_range)
 
-    def combine_flats(self):
+    def combine_flats(self, min_flat_images=1):
         """Combine flats"""
         step_flat = Flat(*self.step_args, **self.config['flat'])
         if exists(step_flat.savefile):
@@ -69,6 +69,8 @@ class CalibrationSet():
             logger.info(f'Assembling master flat ({self.mode})...')
             flats = self.images.filter(image_type='FLAT', mode=self.mode)
             flats.list()
+            if len(flats) < min_flat_images:
+                raise Exception(f'Not enough flat images. Expected {min_flat_images}, found {len(flats)}')
             flat, flat_header = step_flat.run(flats.files, None, self.mask)
         self.data['flat'] = (flat, flat_header)
         self.steps['flat'] = step_flat
