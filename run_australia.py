@@ -10,6 +10,8 @@ from songpipe.image import Image, HighLowImage, ImageList
 # SONGpipe settings
 BASEDIR = '/mnt/c/data/SONG/ssmtkent/'
 MIN_BIAS_IMAGES = 11  # Minimum number of bias images
+MIN_DARK_IMAGES = 5   # Minimum number of dark images
+MIN_DARK_EXPTIME = 10.0  # Ignore if darks are missing for exposures shorter than this (seconds)
 
 # Select image class (single channel or high/low gain)
 # TODO: Should this be done automatically, by date or by analyzing the first FITS file?
@@ -69,7 +71,8 @@ def run_inner(opts, logger):
         bias_list = images.filter(image_type='BIAS')
         bias_list.list()
         # Assert that we have enough images
-        assert len(bias_list) >= MIN_BIAS_IMAGES
+        if len(bias_list) < MIN_BIAS_IMAGES:
+            raise Exception(f'Not enough bias images. Expected {MIN_BIAS_IMAGES}, found {len(bias_list)}')
         # Assemble master bias using specified combine function
         master_bias = bias_list.combine(method='median', silent=opts.silent)
         master_bias.save_fits(master_bias_filename, overwrite=True, dtype='float32')
@@ -93,6 +96,10 @@ def run_inner(opts, logger):
         else:
             logger.info(f'Assembling {exptime} s master dark')
             dark_list = images.filter(image_type='DARK', exptime=exptime)  # TODO: Exptime tolerance
+            # Assert that we have enough images
+            if len(dark_list) < MIN_DARK_IMAGES and exptime >= MIN_DARK_EXPTIME:
+                raise Exception(f'Not enough dark images for {exptime} s master dark. Expected {MIN_DARK_IMAGES}, found {len(dark_list)}')
+            # Handle case of zero darks if 
             if len(dark_list) == 0:
                 logger.warning(f'No darks available for exptime {exptime} s')  # TODO: Handle missing darks
                 continue
