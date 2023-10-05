@@ -177,7 +177,7 @@ def run_inner(opts, logger):
     from pyreduce.reduce import WavelengthCalibrationFinalize
     from pyreduce.wavelength_calibration import LineList
     from pyreduce import echelle
-    from songpipe import CalibrationSet, MultiFiberCalibrationSet  # Modified version
+    from songpipe.calib import CalibrationSet, MultiFiberCalibrationSet  # Modified version
 
     log_file = join(opts.logdir, 'songpipe.log')
     logger = songpipe.running.setup_logger(log_file, silent=opts.silent)  # Do this again to remove the pyreduce logger that loads on import
