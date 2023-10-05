@@ -90,7 +90,7 @@ def run_inner(opts, logger):
         if exists(master_dark_filename):
             # Filename relative to outdir (for logging only)
             filename = relpath(master_dark_filename, opts.outdir)  # For nicer console output
-            logger.debug(f'Master dark ({exptime:.0f}s) already exists - loading from {filename}')
+            logger.info(f'Master dark ({exptime:.0f}s) already exists - loading from {filename}')
             # Load master dark with proper image class
             master_darks[exptime] = IMAGE_CLASS(filename=master_dark_filename)
         else:
