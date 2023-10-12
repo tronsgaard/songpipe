@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+import sys
 from os.path import join, exists, relpath, dirname
 from os import makedirs
 
@@ -9,6 +10,7 @@ from songpipe.image import Image, HighLowImage, ImageList
 
 # SONGpipe settings
 BASEDIR = '/mnt/c/data/SONG/ssmtkent/'
+OBSLOG_NAME = '000_list.txt'
 MIN_BIAS_IMAGES = 11  # Minimum number of bias images
 MIN_DARK_IMAGES = 5   # Minimum number of dark images
 MIN_DARK_EXPTIME = 10.0  # Ignore if darks are missing for exposures shorter than this (seconds)
@@ -56,6 +58,18 @@ def run_inner(opts, logger):
     filemask = join(opts.rawdir, '*.fits')
     images = songpipe.running.load_images(filemask, IMAGE_CLASS, outdir=opts.outdir, 
                                           reload_cache=opts.reload_cache, silent=opts.silent)
+    
+    # Print and store list of observations ("obslog")
+    if opts.skip_obslog is False:
+        # Write to file and console simultaneously
+        images.list(outfile=join(opts.outdir, OBSLOG_NAME), silent=opts.silent)
+    elif opts.silent is False:
+        # Only print in console
+        images.list()
+    
+    if opts.obslog_only is True:
+        logger.info('Done! (obslog only)')
+        sys.exit()
 
     # MASTER BIAS
     # Define where the master bias should be saved/loaded from

@@ -35,6 +35,8 @@ def parse_arguments(basedir):
     ap.add_argument('--logdir', type=str, default=None,
                     help=f'Specify log directory (default: <basedir>/extr_spec/<date_string>/log)')
     # Actions
+    ap.add_argument('--obslog-only', action='store_true',
+                    help='Exit after loading files and storing obslog')
     ap.add_argument('--extract', action='store',
                     help='Path to a single file to extract (prep file)')
     ap.add_argument('--plot', action='store_true',
@@ -45,6 +47,8 @@ def parse_arguments(basedir):
                     help='Extract using simple summation across orders (faster than optimal extraction)')
     ap.add_argument('--silent', action='store_true',
                     help='Silent mode (useful when running in background)')
+    ap.add_argument('--skip-obslog', action='store_true',
+                    help='Don\'t save text file with list of observations')
     ap.add_argument('--skip-flati2', action='store_true',
                     help='Skip extraction of FLATI2 spectra')
     ap.add_argument('--skip-fp', action='store_true',
@@ -163,11 +167,13 @@ def log_summary(opts, image_class):
     logger.info(f'Calib directory:   {opts.calibdir}')
     logger.info(f'Log directory:     {opts.logdir}')
     logger.info('------------------------')
+    logger.info(f'Obslog only:       {opts.obslog_only}')
     logger.info(f'Extract:           {opts.extract}')
     logger.info(f'Plotting:          {opts.plot}')
     logger.info(f'Reload cache:      {opts.reload_cache}')
     logger.info(f'Simple extraction: {opts.simple_extract}')
     logger.info(f'Silent:            {opts.silent}')
+    logger.info(f'Skip obslog:       {opts.skip_obslog}')
     logger.info(f'Skip FLATI2:       {opts.skip_flati2}')
     logger.info(f'Skip Fabry Pérot:  {opts.skip_fp}')
     logger.info(f'Debug mode:        {opts.debug}')
@@ -210,6 +216,7 @@ def load_images(filemask, image_class, reload_cache=False, outdir=dirname(__name
         logger.info('Loading FITS headers from raw images...')
         # The following line loads all *.fits files from the raw directory
         images = ImageList.from_filemask(filemask, image_class=image_class, silent=silent)
+        logger.info(f'Loaded {len(images)} images')
         try:
             # Save objects for next time
             import dill
@@ -218,8 +225,5 @@ def load_images(filemask, image_class, reload_cache=False, outdir=dirname(__name
         except Exception as e:
             logger.warning(e)
             logger.warning('Could not save cache. Continuing...')
-
-    # Print and store list of observations
-    images.list(outfile=join(outdir, '000_list.txt'), silent=silent)
 
     return images
