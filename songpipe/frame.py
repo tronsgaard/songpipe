@@ -93,5 +93,6 @@ class Frame:
         return construct_filename(basename(self.get_header_value('FILE')), object=obj, **kwargs)
 
 class FrameList:
+    """ImageList and SpectrumList inherit shared properties and methods from this class"""
     pass
 
