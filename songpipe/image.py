@@ -344,7 +344,11 @@ class HighLowImage(Image):
 
 class ImageList(FrameList):
     def __init__(self, images):
-        self.images = images
+        if isinstance(images, ImageList):
+            self.images = images.images
+        else:
+            self.images = images
+
         try:
             self.image_class = type(self.images[0])  # Assume at least one image in list
         except IndexError:
