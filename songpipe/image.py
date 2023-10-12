@@ -482,7 +482,7 @@ class ImageList(FrameList):
         return exptimes.tolist()
 
     def filter(self, object_contains=None, object_exact=None, filename_contains=None, filename_exact=None,
-               image_type=None, image_type_exclude=None, mode=None, exptime=None, exptime_tolerance=0.1, 
+               image_type=None, image_type_exclude=None, mode=None, exptime=None, exptime_tol=0.1, 
                limit=None):
         """
         Filter list by various criteria and return result as a new list
@@ -496,7 +496,7 @@ class ImageList(FrameList):
             image_type_exclude: Exclude image type or list of image types
             mode :              Filter by instrument mode or list of modes (e.g. `F1`)
             exptime :           Filter by exposure time
-            exptime_tolerance : Tolerance used for exposure time filter (default: 0.1 s)
+            exptime_tol :       Tolerance used for exposure time filter (default: 0.1 s)
             limit :             Limit number of frames returned (default: unlimited)
         """
 
@@ -535,7 +535,7 @@ class ImageList(FrameList):
                 if im.mode not in mode:
                     mask[k] = False
                     continue
-            if exptime is not None and np.abs(exptime - im.exptime) > exptime_tolerance:
+            if exptime is not None and np.abs(exptime - im.exptime) > exptime_tol:
                 mask[k] = False
                 continue
         # Apply mask
