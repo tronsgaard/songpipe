@@ -477,12 +477,27 @@ class ImageList(FrameList):
         for k, n in count.items():
             print(k, n)
 
-    def get_exptimes(self, threshold=0.1):
+    def get_exptimes(self, threshold=0.1, tol=0.1):
         """
-        Return a list of all exptimes, excluding bias images and times shorter than `threshold` (default: 0.1 s)
+        Return a list of exptimes used in the data
+        
+        Parameters: 
+            threshold : exclude exptimes shorter than `threshold` (default: 0.1s)
+            tol :       cluster similar exptimes in bins of width 2*tol
+        
         """
-        exptimes = np.unique([im.exptime for im in self.images if im.type != 'BIAS'])
-        exptimes = exptimes[exptimes > threshold]
+        all_exptimes = np.array([im.exptime for im in self.images])
+        all_exptimes = all_exptimes[all_exptimes >= threshold]
+        if tol > 0:
+            #exptimes = np.unique(np.round((all_exptimes)/2/tol).astype(int))*2*tol  # cast as integer for faster computation
+            exptimes, indices = np.unique(np.round((all_exptimes)/2/tol).astype(int), return_inverse=True)
+            exptimes = exptimes.astype(float)
+            # Find the median value within each bin
+            for m in range(len(exptimes)):
+                exptimes[m] = np.median(all_exptimes[indices==m])
+
+        else:
+            exptimes = np.unique(all_exptimes)
         return exptimes.tolist()
 
     def filter(self, object_contains=None, object_exact=None, filename_contains=None, filename_exact=None,
