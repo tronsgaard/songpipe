@@ -343,16 +343,21 @@ class HighLowImage(Image):
     
 
 class ImageList(FrameList):
-    def __init__(self, images):
+    def __init__(self, images, image_class=None):
+        """If argument `images` is an empty list, please require """
         if isinstance(images, ImageList):
             self.images = images.images
         else:
-            self.images = images
+            self.images = list(images)
 
-        try:
-            self.image_class = type(self.images[0])  # Assume at least one image in list
-        except IndexError:
-            self.image_class = Image
+        if image_class is not None:
+            self.image_class = image_class
+        else:
+            try:
+                self.image_class = type(self.images[0])  # Assume at least one image in list
+            except IndexError:
+                raise Exception('Could not determine image class. \
+                                Please supply at least one Image or use the `image_class` keyword argument')
 
         # Check that all images are same type
         for im in self.images:
