@@ -398,6 +398,12 @@ class ImageList(FrameList):
             raise KeyError(f'Multiple files matching: "{item}"')
         else:
             raise KeyError(f'No such filename in list: {item}')
+        
+    def append_image(self, image):
+        assert type(image) == self.image_class
+        if image.filename is not None:
+            assert image.filename not in image.files
+        self.images.append(image)
 
     def list(self, add_keys=None, outfile=None, silent=False):
         """
