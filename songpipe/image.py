@@ -427,17 +427,35 @@ class ImageList(FrameList):
                 d['filename'] = basename(im.filename)
             else:
                 d['filename'] = ''
-            d['image_type'] = im.type
-            d['mode'] = im.mode
-            d['exptime'] = im.exptime
+            
+            try:
+                d['image_type'] = im.type
+            except KeyError:
+                d['image_type'] = ''
+            
+            try:
+                d['mode'] = im.mode
+            except KeyError:
+                d['mode'] = ''
+
+            try:
+                d['exptime'] = im.exptime
+            except KeyError:
+                d['exptime'] = ''
+
             # Display additional keywords
             for k in add_keys:
                 try:
                     d[k] = im.header[k]
                 except KeyError:
                     d[k] = ''
+            
             # Display object last
-            d['object'] = im.object
+            try:
+                d['object'] = im.object
+            except KeyError:
+                d['object'] = ''
+            
             # Append row to buffer
             buffer.append(d)
             # Update dict of column widths
