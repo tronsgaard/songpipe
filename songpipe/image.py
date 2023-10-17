@@ -429,9 +429,12 @@ class ImageList(FrameList):
             raise KeyError(f'No such filename in list: {item}')
         
     def append_image(self, image):
-        assert type(image) == self.image_class
+        if type(image) != self.image_class:
+            raise TypeError(f'Wrong image class ({self.image_class}) - cannot append to this ImageList')
         if image.filename is not None:
-            assert image.filename not in image.files
+            for i,im in enumerate(self.images):
+                if im.filename == image.filename:
+                    self.images.pop(i)  # Remove old image object with matching filename
         self.images.append(image)
 
     def list(self, add_keys=None, outfile=None, silent=False):
