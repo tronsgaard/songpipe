@@ -16,6 +16,25 @@ logger = logging.getLogger(__name__)
 """
 METHODS FOR COMBINING IMAGES
 """
+def propagate_header_info(images, header=None):
+    """Helper function for preserving image type etc. in combined images"""
+    if header is None:
+        header = fits.Header()
+
+    image_type = list(set([im.type for im in images]))  # get unique values using set()
+    if len(image_type) == 1:
+        header = header_insert(header, key='IMAGETYP', value=image_type[0])
+
+    objname = list(set([im.object for im in images]))
+    if len(objname) == 1:
+        header = header_insert(header, key='OBJECT', value=objname[0])
+
+    mode = list(set([im.mode for im in images]))
+    if len(mode) == 1:
+        header = header_insert(header, key='PL_MODE', value=mode[0])
+
+    return header
+
 def median_combine(images, nallocate=10, silent=False):
     """Median combine a list of 2D images"""
 
@@ -53,15 +72,25 @@ def median_combine(images, nallocate=10, silent=False):
 
     # TODO: Consider running a manual garbage collection here, to close any lingering memmap file handles
 
-    header = fits.Header()
-    header = header_insert(header, key='EXPTIME', value=np.median([im.exptime for im in images]))
+    # Build new header
+    header = propagate_header_info(images)
+    exptimes = [im.exptime for im in images]
+    header = header_insert(header, key='EXPTIME', value=np.median(exptimes), comment='Combined exposure time (median)')
+    header = header_insert(header, key='PL_NCOMB', value=len(images), comment='Number of combined images')
+    header = header_insert(header, key='PL_CBMTD', value='median', comment='Combine method')
     return Image(data=result, header=header)
 
 
 def mean_combine(images, silent=False):
     """Mean combine a list of 2D images"""
+    # Compute the mean
     data = [im.data for im in tqdm(images, disable=silent)]
-    return Image(data=np.mean(data, axis=0))
+    result = data=np.mean(data, axis=0)
+    # Build new header
+    header = propagate_header_info(images)
+    exptimes = [im.exptime for im in images]
+    header = header_insert(header, key='EXPTIME', value=np.mean(exptimes))
+    return Image(data=result, header=header)
 
 """
 CLASS DEFINITIONS
