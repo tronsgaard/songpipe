@@ -464,6 +464,11 @@ class ImageList(FrameList):
         """Add images from a filemask"""
         self.append_from_files(glob(filemask), limit=limit, silent=silent)
 
+    def clear_data(self):
+        """Clear all data from memory"""
+        for im in self.images:
+            im.clear_data()
+
     def list(self, add_keys=None, outfile=None, silent=False):
         """
         Print a pretty list of filenames and some fits keywords.

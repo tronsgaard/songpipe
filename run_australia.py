@@ -154,9 +154,7 @@ def run_inner(opts, logger):
     prep_images = ImageList(prep_images)
 
     # No more need for bias and darks - clear variables to free memory..
-    master_bias.clear_data()
-    for k, master_dark in master_darks.items():
-        master_dark.clear_data()
+    dark_manager.clear_data()
 
     logger.info(f'Done preparing {len(prep_images)} images.')
     logger.info('------------------------')
