@@ -85,9 +85,10 @@ def run_inner(opts, logger):
     dark_manager.build_all_master_darks(images, silent=opts.silent)
 
     # In case some exptimes are missing, we can add fallback master darks obtained on previous nights
-    if opts.add_darks is not None:
-        add_darks_filemask = join(opts.add_darks, '*.fits')
-        dark_manager.append_from_filemask(add_darks_filemask)
+    for d in opts.add_darks:
+        d = join(d, '*.fits')
+        logger.info(f'Loading additional master darks from {d}')
+        dark_manager.append_from_filemask(d)
     
     # Check if we have all the needed master darks
     dark_manager.check_exptimes(images.get_exptimes(), min_exptime=MIN_DARK_EXPTIME)
