@@ -34,10 +34,12 @@ def parse_arguments(basedir):
                     help=f'Specify calib directory (default: <basedir>/extr_spec/<date_string>/calib)')
     ap.add_argument('--logdir', type=str, default=None,
                     help=f'Specify log directory (default: <basedir>/extr_spec/<date_string>/log)')
+    ap.add_argument('--add-darks', type=str, default=None, metavar='FILEMASK',
+                    help=f'Specify directory with additional master darks')
     # Actions
     ap.add_argument('--obslog-only', action='store_true',
                     help='Exit after loading files and storing obslog')
-    ap.add_argument('--extract', action='store',
+    ap.add_argument('--extract', action='store', metavar='FILEPATH',
                     help='Path to a single file to extract (prep file)')
     ap.add_argument('--plot', action='store_true',
                     help='Activate plotting in PyReduce')
@@ -166,6 +168,7 @@ def log_summary(opts, image_class):
     logger.info(f'Output directory:  {opts.outdir}')
     logger.info(f'Calib directory:   {opts.calibdir}')
     logger.info(f'Log directory:     {opts.logdir}')
+    logger.info(f'Add master darks:  {opts.add_darks}')
     logger.info('------------------------')
     logger.info(f'Obslog only:       {opts.obslog_only}')
     logger.info(f'Extract:           {opts.extract}')
