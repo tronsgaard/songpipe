@@ -34,7 +34,7 @@ def parse_arguments(basedir):
                     help=f'Specify calib directory (default: <basedir>/extr_spec/<date_string>/calib)')
     ap.add_argument('--logdir', type=str, default=None,
                     help=f'Specify log directory (default: <basedir>/extr_spec/<date_string>/log)')
-    ap.add_argument('--add-darks', type=str, action='append', metavar='FILEMASK',
+    ap.add_argument('--add-darks', type=str, default=[], action='append', metavar='FILEMASK',
                     help=f'Specify directory with additional master darks (repeated use allowed)')
     # Actions
     ap.add_argument('--obslog-only', action='store_true',
