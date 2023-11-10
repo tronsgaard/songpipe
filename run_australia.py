@@ -263,6 +263,10 @@ def run_inner(opts, logger):
 
         calibration_set.wavelength_calibs.append((head, wave))
 
+    # Exit if flag --calib-only is set
+    if opts.calib_only is True:
+        sys.exit()
+
     # Extract specific file
     if opts.extract is not None:
         files_to_extract = ImageList.from_filemask(opts.extract)

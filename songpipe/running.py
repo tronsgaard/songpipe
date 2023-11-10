@@ -39,6 +39,8 @@ def parse_arguments(basedir):
     # Actions
     ap.add_argument('--obslog-only', action='store_true',
                     help='Exit after loading files and storing obslog')
+    ap.add_argument('--calib-only', action='store_true',
+                    help='Exit after reducing calibs and ThAr')
     ap.add_argument('--extract', action='store', metavar='FILEPATH',
                     help='Path to a single file to extract (prep file)')
     ap.add_argument('--plot', action='store_true',
