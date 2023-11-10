@@ -123,11 +123,12 @@ def run_inner(opts, logger):
             im_orig.clear_data()  # Avoid filling up the memory
 
             # Get master dark for exptime
-            master_dark = dark_manager.get_master_dark(im.exptime, im.mjd_mid)
-            
-            # Subtract master dark
-            logger.info(f'Subtracting master dark: {master_dark.filename}')
-            im = im.subtract_dark(master_dark)
+            if im.exptime > MIN_DARK_EXPTIME:
+                master_dark = dark_manager.get_master_dark(im.exptime, im.mjd_mid)
+                
+                # Subtract master dark
+                logger.info(f'Subtracting master dark: {master_dark.filename}')
+                im = im.subtract_dark(master_dark)
 
             # Apply gain
             logger.info('Applying gain and merge high+low')
