@@ -457,7 +457,7 @@ class ImageList(FrameList):
         """Add images from a list of filenames"""
         files = apply_limit(files, limit)
         for f in tqdm(files, disable=silent):
-            image = image_class(filename=f)
+            image = self.image_class(filename=f)
             self.append_image(image)
 
     def append_from_filemask(self, filemask, limit=None, silent=False):
