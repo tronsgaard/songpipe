@@ -16,7 +16,15 @@ class DarkManager(ImageList):
     def __init__(self, images, image_class=None, savedir=None,
                  min_dark_images=1, min_bias_images=1, 
                  combine_method='median', ):
-        """If argument `images` is an empty list, please require """
+        """
+        Arguments:
+            images :          Already prepared darks (list or ImageList)
+            image_class :     Image or HighLowImage
+            savedir :         Where to save combined darks
+            min_dark_images : Minimal number of frames to combine for darks
+            min_bias_images : Minimal number of frames to combine for bias
+            combine_method :  Method used for combining frames (default: median)
+        """
         super().__init__(images, image_class=image_class)
         self.savedir = savedir
         self.min_dark_images = min_dark_images
@@ -90,25 +98,81 @@ class DarkManager(ImageList):
     def build_all_master_darks(self, images, exptime_tol=DEFAULT_EXPTIME_TOL, silent=False):
         """Given a list of images, build all the master darks"""
 
-        images = images.filter(imtype='DARK')
-        exptimes = images.exptimes(tol=exptime_tol)
-        logger.info('Available dark exptimes:')
+        images = images.filter(image_type='DARK')
+        exptimes = images.get_exptimes(tol=exptime_tol)
+        # Log
+        logger.debug('Available dark exptimes:')
         for exptime in exptimes:
-            logger.info(images.count(exptime=exptime, exptime_tol=exptime_tol))
+            logger.debug(images.count(exptime=exptime, exptime_tol=exptime_tol))
         
         logger.info('Now building master darks...')
         for exptime in exptimes:
             self.build_master_dark(images, exptime, exptime_tol=exptime_tol, silent=silent)
 
-    def add_master_darks(self):
-        pass
+    def check_exptimes(self, exptimes, exptime_tol=DEFAULT_EXPTIME_TOL, min_exptime=0):
+        """Given a list of exptiems, check that we have darks for all"""
+        missing = False
+        for exptime in exptimes:
+            # Ignore short exptimes
+            if exptime <= min_exptime:
+                continue
+            # Try to get master dark for each exptime
+            try:
+                self.get_master_dark(exptime, exptime_tol=exptime_tol)
+            except MissingDarkError:
+                logger.error(f'Master dark missing for exptime {exptime} s')
+                missing = True
+        if missing is True:
+            raise MissingDarkError()
+        else:
+            logger.info(f'Master darks exist for all exptimes > {min_exptime} s')
 
-    def get_master_bias(self):
-        pass
+    def get_master_dark(self, exptime, mjd=None, 
+                        exptime_tol=DEFAULT_EXPTIME_TOL, 
+                        imtype='DARK'):
+        """
+        Return a master dark with matching exptime. 
+        If multiple matches, pick closest in time.
+        If no exptime match, default to closest exptime below.
+        """
+        
+        # First we list all darks and check that list is not empty
+        all_master_darks = self.filter(image_type=imtype)
+        if len(all_master_darks) == 0:
+            raise MissingDarkError(f'No master darks available ({imtype})')
 
-    def get_master_dark(self, exptime, exptime_tol=DEFAULT_EXPTIME_TOL):
-        pass
+        # Then we look for an exact match to exptime
+        darks_exact = all_master_darks.filter(exptime=exptime, exptime_tol=exptime_tol)
+        if len(darks_exact) == 1:
+            return darks_exact[0]
+        elif len(darks_exact) > 1:
+            if mjd is not None:
+                # Get closest in time
+                return darks_exact.get_closest(mjd)
+            else:
+                # If no reference time is provided, pick the last added
+                return darks_exact[-1]
+        
+        # If we reached this far, it means that no master darks were found with exact exptime
+        # Get a list of all master darks with shorter exptime and pick the longest
+        darks_lte = all_master_darks.filter(exptime_lte=exptime, exptime_tol=exptime_tol)
+        if len(darks_lte) == 0:
+            raise MissingDarkError(f'No master darks available with exptime <= {exptime} s')
+        exptimes = darks_lte.get_exptimes()
+        new_exptime = max(exptimes)
+        logger.warning(f'No master dark available with exptime {exptime} s. Using {new_exptime} s instead.')
+        return self.get_master_dark(new_exptime, mjd=mjd, exptime_tol=exptime_tol, imtype=imtype)
+
+
+
+    def get_master_bias(self, mjd=None):
+        """Return the master bias, if there are multiple, pick the closest in time"""
+        return self.get_master_dark(0, mjd=mjd, imtype='BIAS')
+
 
 
 class NotEnoughImagesError(Exception):
+    pass
+
+class MissingDarkError(Exception):
     pass

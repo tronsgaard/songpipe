@@ -54,6 +54,26 @@ class Frame:
         return self.get_header_value('EXPTIME')
 
     @property
+    def date_start(self):
+        return self.get_header_value('DATE-OBS')
+    
+    @property
+    def jd_start(self):
+        return self.get_header_value('JD-DATE')
+    
+    @property
+    def mjd_start(self):
+        return self.get_header_value('MJD-DATE')
+
+    @property
+    def mjd_mid(self):
+        try:
+            return self.get_header_value('MJD-DATE')
+        except KeyError:
+            exptime_days = self.exptime/86400.
+            return self.mjd_start + 0.5*exptime_days
+
+    @property
     def type(self):
         return self.get_header_value('IMAGETYP')
 
@@ -94,5 +114,4 @@ class Frame:
 
 class FrameList:
     """ImageList and SpectrumList inherit shared properties and methods from this class"""
-    pass
-
+    pass 

@@ -7,6 +7,7 @@ from os import makedirs
 
 import songpipe.running
 from songpipe.image import Image, HighLowImage, ImageList
+from songpipe.dark import DarkManager
 
 # SONGpipe settings
 BASEDIR = '/mnt/c/data/SONG/ssmtkent/'
@@ -71,66 +72,40 @@ def run_inner(opts, logger):
         logger.info('Done! (obslog only)')
         sys.exit()
 
-    # MASTER BIAS
-    # Define where the master bias should be saved/loaded from
-    master_bias_filename = join(opts.outdir, 'prep/master_bias.fits')
-    if exists(master_bias_filename):
-        # Filename relative to outdir (for logging only)
-        filename = relpath(master_bias_filename, opts.outdir)
-        # Load master bias with proper image class
-        logger.info(f'Master bias already exists - loading from {filename}')
-        master_bias = IMAGE_CLASS(filename=master_bias_filename)
-    else:
-        logger.info('Assembling master bias...')
-        # Fetch a list of bias images
-        bias_list = images.filter(image_type='BIAS')
-        bias_list.list()
-        # Assert that we have enough images
-        if len(bias_list) < MIN_BIAS_IMAGES:
-            raise Exception(f'Not enough bias images. Expected {MIN_BIAS_IMAGES}, found {len(bias_list)}')
-        # Assemble master bias using specified combine function
-        master_bias = bias_list.combine(method='median', silent=opts.silent)
-        master_bias.save_fits(master_bias_filename, overwrite=True, dtype='float32')
+    # MASTER BIAS AND DARKS
+    # Initialize the DarkManager, from which we will request the darks we need
+    darkdir = join(opts.outdir, 'dark')  # Where to save darks from this night
+    dark_manager = DarkManager([], image_class=IMAGE_CLASS, 
+                               combine_method='median', savedir=darkdir, 
+                               min_dark_images=MIN_DARK_IMAGES, 
+                               min_bias_images=MIN_BIAS_IMAGES)
+    
+    # Now build master bias and master darks from all available exposure times
+    dark_manager.build_master_bias(images, silent=opts.silent)
+    dark_manager.build_all_master_darks(images, silent=opts.silent)
 
-    # MASTER DARKS
-    logger.info('------------------------')
-    # Get list of all exptimes
-    exptimes = images.get_exptimes()
-    logger.info(f'Exptimes (seconds): {exptimes}')
+    # In case some exptimes are missing, we can add fallback master darks obtained on previous nights
+    #dark_manager.append_from_filemask('/path/to/the/dark/side/*.fits')
+    
+    # Check if we have all the needed master darks
+    dark_manager.check_exptimes(images.get_exptimes(), min_exptime=MIN_DARK_EXPTIME)
 
-    master_darks = {}  # Dict of master dark for each exptime
-    for exptime in exptimes:
-        # Define where the master dark for this exptime should be saved/loaded from
-        master_dark_filename = join(opts.outdir, f'prep/master_dark_{exptime:.0f}s.fits')
-        if exists(master_dark_filename):
-            # Filename relative to outdir (for logging only)
-            filename = relpath(master_dark_filename, opts.outdir)  # For nicer console output
-            logger.info(f'Master dark ({exptime:.0f}s) already exists - loading from {filename}')
-            # Load master dark with proper image class
-            master_darks[exptime] = IMAGE_CLASS(filename=master_dark_filename)
-        else:
-            logger.info(f'Assembling {exptime} s master dark')
-            dark_list = images.filter(image_type='DARK', exptime=exptime)  # TODO: Exptime tolerance
-            # Assert that we have enough images
-            if len(dark_list) < MIN_DARK_IMAGES and exptime >= MIN_DARK_EXPTIME:
-                raise Exception(f'Not enough dark images for {exptime} s master dark. Expected {MIN_DARK_IMAGES}, found {len(dark_list)}')
-            # Handle case of zero darks if 
-            if len(dark_list) == 0:
-                logger.warning(f'No darks available for exptime {exptime} s')  # TODO: Handle missing darks
-                continue
-
-            # Assemble master dark using the specified combine function
-            master_darks[exptime] = dark_list.combine(method='median', silent=opts.silent)
-            master_darks[exptime].subtract_bias(master_bias, inplace=True)  # Important!
-            master_darks[exptime].save_fits(master_dark_filename, overwrite=True, dtype='float32')
+    # Now we can request the master bias and master dark like this:
+    master_bias = dark_manager.get_master_bias()
+    # master_dark = dark_manager.get_master_dark(60)
 
     # PREPARE IMAGES
     # Prepare for extraction by subtracting master bias and dark, then merge high-low gain channels
     logger.info('------------------------')
     logger.info('Preparing images...')
     prep_images = []
-    # Loop over all images except bias and darks
+    # Loop over all images except bias and darks (and except FLATI2 and FP if set)
     loop_images = images.filter(image_type_exclude=('BIAS', 'DARK'))
+    if opts.skip_flati2 is True:
+        loop_images = images.filter(image_type_exclude='FLATI2')
+    if opts.skip_fp is True:
+        loop_images = images.filter(image_type_exclude='FP')
+
     for im_orig in loop_images.images:
         # Define where this prepared image should be saved/loaded from
         out_filename = join(opts.outdir, 'prep', im_orig.construct_filename(suffix='prep'))
@@ -144,13 +119,12 @@ def run_inner(opts, logger):
             im = im_orig.subtract_bias(master_bias)
             im_orig.clear_data()  # Avoid filling up the memory
 
-            # Select master dark based on exptime
-            dark_exptimes = np.array([0] + list(master_darks.keys()))
-            k = np.argmin(np.abs(dark_exptimes - im.exptime))
-            dark_exptime = dark_exptimes[k]  # TODO: Make this more flexible
-            if dark_exptime > 0:
-                logger.info(f'Subtracting {dark_exptime}s master dark...')
-                im = im.subtract_dark(master_darks[dark_exptimes[k]])
+            # Get master dark for exptime
+            master_dark = dark_manager.get_master_dark(im.exptime, im.mjd_mid)
+            
+            # Subtract master dark
+            logger.info(f'Subtracting master dark: {master_dark.filename}')
+            im = im.subtract_dark(master_dark)
 
             # Apply gain
             logger.info('Applying gain and merge high+low')

@@ -33,6 +33,20 @@ def propagate_header_info(images, header=None):
     if len(mode) == 1:
         header = header_insert(header, key='PL_MODE', value=mode[0])
 
+    # Propagate start time 
+    try:
+        # Sort according to MJD and get the first
+        sorted_images = sorted(images, key=lambda x : x.mjd_start)
+        im0 = sorted_images[0]
+        
+        header = header_insert(header, key='DATE-OBS', value=im0.date_start, comment='UTC Start of first exposure')
+        header = header_insert(header, key='JD-DATE', value=im0.jd_start, comment='JD_UTC Start of first exposure')
+        header = header_insert(header, key='MJD-DATE', value=im0.mjd_start, comment='MJD_UTC Start of first exposure')
+    except Exception as e:
+        logger.error('The following exception occurred when trying to \
+                     get the start time of the first exposure in the stack')
+        logger.exception(e)
+
     return header
 
 def median_combine(images, nallocate=10, silent=False):
@@ -74,8 +88,10 @@ def median_combine(images, nallocate=10, silent=False):
 
     # Build new header
     header = propagate_header_info(images)
+    # Calculate new exptime
     exptimes = [im.exptime for im in images]
     header = header_insert(header, key='EXPTIME', value=np.median(exptimes), comment='Combined exposure time (median)')
+    # More header info
     header = header_insert(header, key='PL_NCOMB', value=len(images), comment='Number of combined images')
     header = header_insert(header, key='PL_CBMTD', value='median', comment='Combine method')
     return Image(data=result, header=header)
@@ -437,6 +453,17 @@ class ImageList(FrameList):
                     self.images.pop(i)  # Remove old image object with matching filename
         self.images.append(image)
 
+    def append_from_files(self, files, limit=None, silent=False):
+        """Add images from a list of filenames"""
+        files = apply_limit(files, limit)
+        for f in tqdm(files, disable=silent):
+            image = image_class(filename=f)
+            self.append_image(image)
+
+    def append_from_filemask(self, filemask, limit=None, silent=False):
+        """Add images from a filemask"""
+        self.append_from_files(glob(filemask), limit=limit, silent=silent)
+
     def list(self, add_keys=None, outfile=None, silent=False):
         """
         Print a pretty list of filenames and some fits keywords.
@@ -562,7 +589,8 @@ class ImageList(FrameList):
         return exptimes.tolist()
 
     def filter(self, object_contains=None, object_exact=None, filename_contains=None, filename_exact=None,
-               image_type=None, image_type_exclude=None, mode=None, exptime=None, exptime_tol=0.1, 
+               image_type=None, image_type_exclude=None, mode=None, 
+               exptime=None, exptime_lte=None, exptime_tol=0.1, 
                limit=None):
         """
         Filter list by various criteria and return result as a new list
@@ -576,6 +604,7 @@ class ImageList(FrameList):
             image_type_exclude: Exclude image type or list of image types
             mode :              Filter by instrument mode or list of modes (e.g. `F1`)
             exptime :           Filter by exposure time
+            exptimel_lt :       Filter by exposure time less than
             exptime_tol :       Tolerance used for exposure time filter (default: 0.1 s)
             limit :             Limit number of frames returned (default: unlimited)
         """
@@ -618,12 +647,15 @@ class ImageList(FrameList):
             if exptime is not None and np.abs(exptime - im.exptime) > exptime_tol:
                 mask[k] = False
                 continue
+            if exptime_lte is not None and im.exptime > exptime_lte + exptime_tol:
+                mask[k] = False
+                continue
         # Apply mask
         images = np.array(self.images)[mask].tolist()
         # Apply limit
         images = apply_limit(images, limit)
         # Return new ImageList
-        return ImageList(images)
+        return ImageList(images, image_class=self.image_class)
     
     def count(self, **kwargs):
         """Passes all arguments to self.filter() and counts the number of frames returned"""
@@ -645,3 +677,23 @@ class ImageList(FrameList):
         logger.info('Combine done!')
         return result
     
+    def get_closest(self, mjd):
+        """Given a MJD time, return the Image with the closest MJD mid time"""
+        # Build list of tuples (im, timediff)
+        res = []
+        for im in self.images:
+            d = mjd - im.mjd_mid
+            res.append((im, d))
+        # Sort according to abs(timediff)
+        res = sorted(res, key=lambda x: np.abs(x[1]))
+        im, d = res[0]
+        # Log nicely
+        if d < 1/24:
+            logger.debug(f'Found image closest in time: {24*60*d:.2f} minutes')
+        elif d < 1:
+            logger.debug(f'Found image closest in time: {24*d:.2f} hours')
+        else:
+            logger.debug(f'Found image closest in time: {d:.2f} days')
+        if im.filename is not None:
+            logger.debug(f'Filename: {im.filename}')
+        return im
