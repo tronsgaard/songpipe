@@ -416,7 +416,10 @@ class ImageList(FrameList):
 
     @classmethod
     def from_filemask(cls, filemask, image_class=Image, limit=None, silent=False):
-        return cls.from_files(glob(filemask), image_class=image_class, limit=limit, silent=silent)
+        files = glob(filemask)
+        if len(files) == 0:
+            raise FileNotFoundError(f'No images found: {filemask}')
+        return cls.from_files(files, image_class=image_class, limit=limit, silent=silent)
 
     @property
     def files(self):
