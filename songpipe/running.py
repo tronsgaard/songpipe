@@ -31,9 +31,9 @@ def parse_arguments(basedir):
     ap.add_argument('--outdir', type=str, default=None,
                     help=f'Specify raw directory (default: <basedir>/extr_spec/<date_string>)')
     ap.add_argument('--calibdir', type=str, default=None,
-                    help=f'Specify calib directory (default: <basedir>/extr_spec/<date_string>/calib)')
+                    help=f'Specify calib directory (default: <outdir>/calib)')
     ap.add_argument('--logdir', type=str, default=None,
-                    help=f'Specify log directory (default: <basedir>/extr_spec/<date_string>/log)')
+                    help=f'Specify log directory (default: <outdir>/log)')
     ap.add_argument('--add-darks', type=str, default=[], action='append', metavar='FILEMASK',
                     help=f'Specify directory with additional master darks (repeated use allowed)')
     # Actions
@@ -77,11 +77,11 @@ def parse_arguments(basedir):
         opts.outdir = join(opts.basedir, 'extr_spec', opts.datestr)
         makedirs(opts.outdir, exist_ok=True)
     if opts.calibdir is None:
-        # Default to <basedir>/extr_spec/<date_string>/calib
+        # Default to <outdir>/calib
         opts.calibdir = join(opts.outdir, 'calib')
         makedirs(opts.calibdir, exist_ok=True)
     if opts.logdir is None:
-        # Default to <basedir>/extr_spec/<date_str>/log
+        # Default to <outdir>/log
         opts.logdir = join(opts.outdir, 'log')
     
     return opts
