@@ -87,20 +87,27 @@ class Frame:
             # Otherwise, derive from rest of header
             if self.type in ('DARK', 'BIAS'):
                 return 'DARK'
-            if self.type == 'FLAT' and self.get_header_value('LIGHTP') == 1:
-                return 'SLIT'
-            if self.type in ('FLAT', 'FLATI2', 'THAR', 'FP'):
-                # Check telescope shutters
-                tel1 = self.get_header_value('TEL1_S')
-                tel2 = self.get_header_value('TEL2_S')
-                if tel1 == 1 and tel2 == 1:
-                    return 'F12'
-                if tel1 == 1:
-                    return 'F1'
-                if tel2 == 1:
-                    return 'F2'
+            # Tenerife:
+            if self.get_header_value('TELESCOP') == 'Node 1':
+                slit = self.get_header_value('SLIT')
+                return f'SLIT{slit}'
+            # Australia:
+            if self.get_header_value('OBSERVAT') == 'Mt. Kent':
+                if self.type == 'FLAT' and self.get_header_value('LIGHTP') == 1:
+                    return 'SLIT'
+                if self.type in ('FLAT', 'FLATI2', 'THAR', 'FP'):
+                    # Check telescope shutters
+                    tel1 = self.get_header_value('TEL1_S')
+                    tel2 = self.get_header_value('TEL2_S')
+                    if tel1 == 1 and tel2 == 1:
+                        return 'F12'
+                    if tel1 == 1:
+                        return 'F1'
+                    if tel2 == 1:
+                        return 'F2'
             # In any other case (including all observations):
-            return 'UNKNOWN'  # FIXME: Figure out a way to detect if there is light in both fibre
+            return 'UNKNOWN'  
+            # FIXME: Figure out a way to detect if there is light in both fibres
 
     # Misc
     def construct_filename(self, **kwargs):
