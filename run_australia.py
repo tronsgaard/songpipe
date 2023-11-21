@@ -80,16 +80,16 @@ def run_inner(opts, logger):
                                min_dark_images=MIN_DARK_IMAGES, 
                                min_bias_images=MIN_BIAS_IMAGES)
     
-    # Now build master bias and master darks from all available exposure times
-    dark_manager.build_master_bias(images, silent=opts.silent)
-    dark_manager.build_all_master_darks(images, silent=opts.silent)
-
-    # In case some exptimes are missing, we can add fallback master darks obtained on previous nights
+    # Add fallback master darks (and master biases) obtained on previous nights
     for d in opts.add_darks:
         d = join(d, '*.fits')
         logger.info(f'Loading additional master darks from {d}')
         dark_manager.append_from_filemask(d)
-    
+
+    # Now build master bias and master darks from all available exposure times
+    dark_manager.build_master_bias(images, silent=opts.silent)
+    dark_manager.build_all_master_darks(images, silent=opts.silent)
+
     # Check if we have all the needed master darks
     dark_manager.check_exptimes(images.get_exptimes(), min_exptime=MIN_DARK_EXPTIME)
 
