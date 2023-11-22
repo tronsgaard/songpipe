@@ -24,17 +24,29 @@ def parse_arguments(basedir):
     # Directory structure
     ap.add_argument('datestr', metavar='date_string', type=str, default=None,
                     help='Night date (as a string), e.g. `20220702`')
-    ap.add_argument('--basedir', type=str, default=basedir,
+    ap.add_argument('--basedir', type=str, default=basedir, metavar='DIRPATH', 
                     help=f'Base directory (default: {basedir})')
-    ap.add_argument('--rawdir', type=str, default=None,
+    ap.add_argument('--rawdir', type=str, default=None, metavar='DIRPATH', 
                     help=f'Specify raw directory (default: <basedir>/star_spec/<date_string>/raw)')
-    ap.add_argument('--outdir', type=str, default=None,
+    ap.add_argument('--outdir', type=str, default=None, metavar='DIRPATH', 
                     help=f'Specify raw directory (default: <basedir>/extr_spec/<date_string>)')
-    ap.add_argument('--calibdir', type=str, default=None,
-                    help=f'Specify calib directory (default: <outdir>/calib)')
-    ap.add_argument('--logdir', type=str, default=None,
+    ap.add_argument('--darkdir', type=str, default=None, metavar='DIRPATH', 
+                    help=f'Specify dark directory (default: <outdir>/dark)')
+    ap.add_argument('--prepdir', type=str, default=None, metavar='DIRPATH', 
+                    help=f'Specify prep directory (default: <outdir>/prep)')
+    ap.add_argument('--calibdir', type=str, default=None, metavar='DIRPATH', 
+                    help=f'Specify calib (flat/trace) directory (default: <outdir>/calib)')
+    ap.add_argument('--thardir', type=str, default=None, metavar='DIRPATH', 
+                    help=f'Specify ThAr directory (default: <outdir>/thar)')
+    ap.add_argument('--fpdir', type=str, default=None, metavar='DIRPATH', 
+                    help=f'Specify Fabry-Perót directory (default: <outdir>/fp)')
+    ap.add_argument('--flati2dir', type=str, default=None, metavar='DIRPATH', 
+                    help=f'Specify flatI2 directory (default: <outdir>/flati2)')
+    ap.add_argument('--stardir', type=str, default=None, metavar='DIRPATH', 
+                    help=f'Specify star directory (default: <outdir>/star)')
+    ap.add_argument('--logdir', type=str, default=None, metavar='DIRPATH', 
                     help=f'Specify log directory (default: <outdir>/log)')
-    ap.add_argument('--add-darks', type=str, default=[], action='append', metavar='FILEMASK',
+    ap.add_argument('--add-darks', type=str, default=[], action='append', metavar='DIRPATH',
                     help=f'Specify directory with additional master darks (repeated use allowed)')
     # Actions
     ap.add_argument('--obslog-only', action='store_true',
@@ -54,9 +66,11 @@ def parse_arguments(basedir):
     ap.add_argument('--skip-obslog', action='store_true',
                     help='Don\'t save text file with list of observations')
     ap.add_argument('--skip-flati2', action='store_true',
-                    help='Skip extraction of FLATI2 spectra')
+                    help='Skip extraction of flatI2 spectra')
     ap.add_argument('--skip-fp', action='store_true',
                     help='Skip extraction of Fabry Perót (FP) spectra')
+    ap.add_argument('--confirm-settings', action='store_true',
+                    help='Pause script and wait for user to review and confirm settings')
     ap.add_argument('--debug', action='store_true',
                     help='Set log level to debug (log everything)')
     # TODO:
@@ -69,6 +83,8 @@ def parse_arguments(basedir):
         devnull = open('/dev/null', 'w')
         sys.stdout = devnull
         sys.stderr = devnull  # tqdm progress bars are printed through stderr; pyreduce has no option to silence tqdm
+    
+    # Set default directories
     if opts.rawdir is None:
         # Default to <basedir>/star_spec/<date_string>/raw
         opts.rawdir = join(opts.basedir, 'star_spec', opts.datestr, 'raw')
@@ -76,10 +92,34 @@ def parse_arguments(basedir):
         # Default to <basedir>/extr_spec/<date_string>
         opts.outdir = join(opts.basedir, 'extr_spec', opts.datestr)
         makedirs(opts.outdir, exist_ok=True)
+    if opts.darkdir is None:
+        # Default to <outdir>/dark
+        opts.darkdir = join(opts.outdir, 'dark')
+        makedirs(opts.darkdir, exist_ok=True)
+    if opts.prepdir is None:
+        # Default to <outdir>/prep
+        opts.prepdir = join(opts.outdir, 'prep')
+        makedirs(opts.prepdir, exist_ok=True)
     if opts.calibdir is None:
         # Default to <outdir>/calib
         opts.calibdir = join(opts.outdir, 'calib')
         makedirs(opts.calibdir, exist_ok=True)
+    if opts.thardir is None:
+        # Default to <outdir>/thar
+        opts.thardir = join(opts.outdir, 'thar')
+        makedirs(opts.thardir, exist_ok=True)
+    if opts.stardir is None:
+        # Default to <outdir>/star
+        opts.stardir = join(opts.outdir, 'star')
+        makedirs(opts.stardir, exist_ok=True)
+    if opts.fpdir is None:
+        # Default to <outdir>/fp
+        opts.fpdir = join(opts.outdir, 'fp')
+        makedirs(opts.fpdir, exist_ok=True)
+    if opts.flati2dir is None:
+        # Default to <outdir>/flati2
+        opts.flati2dir = join(opts.outdir, 'flati2')
+        makedirs(opts.flati2dir, exist_ok=True)
     if opts.logdir is None:
         # Default to <outdir>/log
         opts.logdir = join(opts.outdir, 'log')
@@ -168,7 +208,16 @@ def log_summary(opts, image_class):
     logger.info('------------------------')
     logger.info(f'Raw directory:     {opts.rawdir}')
     logger.info(f'Output directory:  {opts.outdir}')
+    logger.info('------------------------')
+    logger.info(f'Dark directory:    {opts.darkdir}')
+    logger.info(f'Prep directory:    {opts.prepdir}')
     logger.info(f'Calib directory:   {opts.calibdir}')
+    logger.info(f'ThAr directory:    {opts.thardir}')
+    logger.info(f'Star directory:    {opts.stardir}')
+    if opts.skip_fp is False:
+        logger.info(f'FP directory:      {opts.fpdir}')
+    if opts.skip_flati2 is False:
+        logger.info(f'FlatI2 directory:  {opts.flati2dir}')
     logger.info(f'Log directory:     {opts.logdir}')
     logger.info(f'Add master darks:  {opts.add_darks}')
     logger.info('------------------------')
@@ -186,6 +235,9 @@ def log_summary(opts, image_class):
 
     logger.info(f'Image class: <{image_class.__module__}.{image_class.__name__}>')
     logger.info('------------------------')
+
+    if opts.confirm_settings is True:
+        input('Press ENTER to continue or Ctrl-C to abort...')
 
 
 def load_images(filemask, image_class, reload_cache=False, outdir=dirname(__name__), silent=False):

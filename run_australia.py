@@ -74,9 +74,8 @@ def run_inner(opts, logger):
 
     # MASTER BIAS AND DARKS
     # Initialize the DarkManager, from which we will request the darks we need
-    darkdir = join(opts.outdir, 'dark')  # Where to save darks from this night
     dark_manager = DarkManager([], image_class=IMAGE_CLASS, 
-                               combine_method='median', savedir=darkdir, 
+                               combine_method='median', savedir=opts.darkdir, 
                                min_dark_images=MIN_DARK_IMAGES, 
                                min_bias_images=MIN_BIAS_IMAGES)
     
@@ -111,7 +110,7 @@ def run_inner(opts, logger):
 
     for im_orig in loop_images.images:
         # Define where this prepared image should be saved/loaded from
-        out_filename = join(opts.outdir, 'prep', im_orig.construct_filename(suffix='prep'))
+        out_filename = join(opts.prepdir, im_orig.construct_filename(suffix='prep'))
         if exists(out_filename):
             logger.debug(f'File already exists - loading from {relpath(out_filename, opts.outdir)}')
             im = Image(filename=out_filename)
@@ -221,14 +220,11 @@ def run_inner(opts, logger):
     thar_images = prep_images.filter(image_type='THAR')
     thar_images.list()
 
-    thardir = join(opts.outdir, 'thar')
-    makedirs(thardir, exist_ok=True)
-
     thar_spectra = []
     for im in thar_images:
         mode = im.mode
         calibration_set = calibs[mode]
-        thar_spectra += calibration_set.extract(im, savedir=thardir)
+        thar_spectra += calibration_set.extract(im, savedir=opts.thardir)
 
     for thar in thar_spectra:
         mode = thar.mode
@@ -247,7 +243,7 @@ def run_inner(opts, logger):
 
             #step_args = calibration_set.step_args
             # (instrument, mode, target, night, output_dir, order_range)
-            step_args = (instrument, mode, None, None, thardir, calibration_set.order_range)
+            step_args = (instrument, mode, None, None, opts.thardir, calibration_set.order_range)
             step_wavecal = WavelengthCalibrationFinalize(*step_args, **config['wavecal'])
 
             wavecal_master = (spec, head)
@@ -255,7 +251,7 @@ def run_inner(opts, logger):
             wavecal_init = LineList.load(reference)
             wave, coef, linelist = step_wavecal.run(wavecal_master, wavecal_init)
             # Save the coefficients and linelist in npz file
-            savefile = join(thardir, thar.construct_filename(ext='.thar.npz', mode=mode, object=None))
+            savefile = join(opts.thardir, thar.construct_filename(ext='.thar.npz', mode=mode, object=None))
             np.savez(savefile, wave=wave, coef=coef, linelist=linelist)
             # Save .ech compatible FITS file
             data['wave'] = wave 
@@ -279,20 +275,20 @@ def run_inner(opts, logger):
         if im.mode == 'UNKNOWN':
             mode = 'F12'  # Extract as F12 if mode is unknown (Mt. Kent)
         calibration_set = calibs[mode]
-        calibration_set.extract(im, savedir=join(opts.outdir, 'star'))
+        calibration_set.extract(im, savedir=opts.stardir)
 
     if opts.extract is None:
         # Extract FlatI2
         if opts.skip_flati2 is not True:
             for im in prep_images.filter(image_type='FLATI2'):
                 calibration_set = calibs[im.mode]
-                calibration_set.extract(im, savedir=join(opts.outdir, 'flati2'))
+                calibration_set.extract(im, savedir=opts.flati2dir)
 
         # Extract FP
         if opts.skip_fp is not True:
             for im in prep_images.filter(image_type='FP'):
                 calibration_set = calibs[im.mode]
-                calibration_set.extract(im, savedir=join(opts.outdir, 'fp'))
+                calibration_set.extract(im, savedir=opts.fpdir)
 
     print('------------------------')
 
