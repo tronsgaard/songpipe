@@ -68,7 +68,7 @@ class Frame:
     @property
     def mjd_mid(self):
         try:
-            return self.get_header_value('MJD-DATE')
+            return self.get_header_value('MJD-MID')
         except KeyError:
             exptime_days = self.exptime/86400.
             return self.mjd_start + 0.5*exptime_days
