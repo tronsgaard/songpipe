@@ -1,8 +1,13 @@
+"""
+This module contains the `CalibrationSet` class, and the subclass `MultiFiberCalibrationSet`, 
+with methods that wrap the functionality of PyReduce.
+"""
 from os.path import basename, splitext, exists, join, relpath, dirname
 from os import makedirs
 import numpy as np
 from pyreduce import echelle
 from pyreduce.reduce import ScienceExtraction, Flat, OrderTracing, BackgroundScatter, NormalizeFlatField
+from pyreduce.extract import fix_parameters
 
 from .plotting import plot_order_trace
 from .misc import construct_filename, header_insert
@@ -10,11 +15,6 @@ from .spectrum import Spectrum
 
 from logging import getLogger
 logger = getLogger(__name__)
-
-"""
-This module contains the `CalibrationSet` class, and the subclass `MultiFiberCalibrationSet`, 
-with methods that wrap the functionality of PyReduce.
-"""
 
 class CalibrationSet():
     """This class represents a calibration set for a single-fiber setup (e.g. F1)"""
@@ -117,7 +117,7 @@ class CalibrationSet():
             self.plot_trace()
             return (orders, column_range)
 
-    def plot_trace(self):
+    def plot_trace(self, **kwargs):
         """Custom order plot"""
         #name, _ = splitext(self.steps['orders'].savefile)
         savename = join(self.output_dir, f"plot_trace_{self.mode}.png")
@@ -126,8 +126,45 @@ class CalibrationSet():
         else:
             flat, fhead = self.data['flat']
             orders, column_range = self.data['orders']
-            plot_order_trace(flat, orders, column_range, savename=savename)  # Custom plot routine
+            widths = self.get_extraction_widths()
+            plot_order_trace(flat, orders, column_range, widths=widths, savename=savename, **kwargs)  # Custom plot routine
             logger.info(f'Order plot saved to: {relpath(savename, self.output_dir)}')
+
+    def get_extraction_widths(self, xwd=None, step_name='science', image_shape=None):
+        """
+        Converts fractional extraction width into pixels for each order.
+        Use argument xwd if supplied, otherwise get from config[step_name]
+        """
+        try:
+            orders, cr = self.data['orders']
+            nord = len(orders)
+        except KeyError:
+            raise Exception('Cannot calculate extraction widths without order trace')
+        xwd = self.config[step_name]['extraction_width']
+        if image_shape is None:
+            image_shape = self.images[0].shape
+        nrow, ncol = image_shape
+        xwd, cr, orders = fix_parameters(xwd, cr, orders, nrow, ncol, nord, 
+                                         ignore_column_range=True)
+        return xwd
+    
+    def log_extraction_widths(self, **kwargs):
+        """Calculate extraction widths and print/log for each order"""
+        xwd = self.get_extraction_widths(**kwargs)
+        orders, cr = self.data['orders']
+        if hasattr(self, 'order_modes'):
+            order_modes = self.order_modes
+        else:
+            order_modes = [self.mode] * len(orders)
+        # Loop over orders
+        logger.info(f'{self.mode} extraction widths:')
+        for i in range(len(orders)):
+            x0, x1 = xwd[i]
+            c0, c1 = cr[i]
+            om = order_modes[i]
+            logger.info(f'Order {i} ({om}): '
+                        f'{x0}px (below) / {x1}px (above) '
+                        f'| column range: [{c0};{c1}]')
 
     
     def measure_scattered_light(self):
@@ -249,6 +286,8 @@ class MultiFiberCalibrationSet(CalibrationSet):
         # Save for later
         self.data['orders'] = (orders, column_range)
         self.order_modes = order_modes.flatten()
+        logger.info(f"Loaded {len(orders)} order traces ({self.mode}) by combining modes {list(self.sub_mode_calibs.keys())}.")
+        
         self.plot_trace()
 
     def save_extracted(self, orig_filename, head, spec, sigma, column_range, savedir=None):
