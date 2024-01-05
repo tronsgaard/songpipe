@@ -115,6 +115,23 @@ CLASS DEFINITIONS
 class Image(Frame):
     """Represents a normal, single FITS image"""
 
+    def __init__(self, header=None, data=None, filename=None, ext=0, parent=None):
+        self._header = header
+        self._data = data
+        self.filename = filename
+        self.ext = ext
+        self.parent = parent  # Enables us to go back to a HighLowImage and look in the primary header
+        self.file_handle = None
+
+        # Load header from file
+        if self._header is None and self._data is None:
+            with fits.open(filename) as h:
+                self._header = h[ext].header  # Don't load data yet
+
+        # Create empty header if necessary
+        if self._header is None:
+            self._header = fits.Header()
+
     @classmethod
     def combine(cls, images, combine_function, **kwargs):
         """Combine a list of Images into one Image"""

@@ -1,6 +1,5 @@
 from os.path import basename
 import numpy as np
-import astropy.io.fits as fits
 
 from . import config
 from .misc import construct_filename, apply_limit
@@ -18,22 +17,8 @@ class Frame:
     Parent-child structure allows for HighLowImage containing two Image objects
     """
 
-    def __init__(self, header=None, data=None, filename=None, ext=0, parent=None):
-        self._header = header
-        self._data = data
-        self.filename = filename
-        self.ext = ext
-        self.parent = parent  # Enables us to go back to a HighLowImage and look in the primary header
-        self.file_handle = None
-
-        # Load header from file
-        if self._header is None and self._data is None:
-            with fits.open(filename) as h:
-                self._header = h[ext].header  # Don't load data yet
-
-        # Create empty header if necessary
-        if self._header is None:
-            self._header = fits.Header()
+    def __init__(self):
+        raise NotImplementedError  # Frame class should not be used directly
 
     def get_header_value(self, key):
         """If header does not contain the key, go back and check the parent frame (e.g. a HighLowImage)"""
