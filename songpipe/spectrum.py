@@ -43,10 +43,24 @@ class Spectrum(Frame):
         if keep_thead is False:
             self._theader = None
 
+    def save(self, filename=None):
+        """Saves/updates ech file"""
+        if filename is None:
+            filename = self.filename
+        logger.debug(f'Saving spectrum to {filename}')
+        self._ech.save(filename)
+
+
     def _get_ech_property(self, name):
         if self._ech is None:
             self.load_data()
         return getattr(self._ech, name)
+    
+    def _set_ech_property(self, name, value):
+        if self._ech is None:
+            self.load_data()
+        logger.debug(f'Setting ech property {name}')
+        setattr(self._ech, name, value)
 
     @property
     def nord(self):
@@ -59,18 +73,34 @@ class Spectrum(Frame):
     @property
     def spec(self):
         return self._get_ech_property('spec')
+    
+    @spec.setter
+    def spec(self, value):
+        self._set_ech_property('spec', value)
 
     @property
     def sig(self):
         return self._get_ech_property('sig')
 
+    @sig.setter
+    def sig(self, value):
+        self._set_ech_property('sig', value)
+
     @property
     def wave(self):
         return self._get_ech_property('wave')
+    
+    @wave.setter
+    def wave(self, value):
+        self._set_ech_property('wave', value)
 
     @property
     def cont(self):
         return self._get_ech_property('cont')
+    
+    @cont.setter
+    def cont(self, value):
+        self._set_ech_property('cont', value)
         
     @property
     def columns(self):
