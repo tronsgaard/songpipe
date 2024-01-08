@@ -205,12 +205,27 @@ class FrameList:
         return len(res)
     
     def append(self, frame):
+        """
+        Append `frame` to `self.frames`.
+        If `frame` has a filename, this method will remove any 
+        existing duplicates in `self.frames` before appending `frame`.
+        """
         if frame.filename is not None:
             for i,f in enumerate(self.frames):
                 if f.filename == frame.filename:
                     self.frames.pop(i)  # Remove old image object with matching filename
         self.frames.append(frame)
 
+    def extend(self, frames):
+        """Extend with a list of frames, calling self.append() for each item"""
+        for frame in frames:
+            self.append(frame)
+
+    def __iadd__(self, other):
+        """Enables the += operator"""
+        self.extend(other)
+        return self
+    
     def list(self, add_keys=None, outfile=None, silent=False):
         """
         Print a pretty list of filenames and some fits keywords.
