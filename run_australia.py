@@ -248,20 +248,17 @@ def run_inner(opts, logger):
     thar_images = prep_images.filter(image_type='THAR')
     thar_images.list()
 
-    thar_spectra = []
+    thar_spectra = SpectrumList([])
     for mode, calibration_set in calibs.items():
         # For each mode/calibration set, extract all ThAr spectra
         for im in thar_images.filter(mode=mode):
             result = calibration_set.extract(im, savedir=opts.thardir)
             thar_spectra += result  # extract() always outputs a list of spectra
-    
-    # Turn the list into a SpectrumList object
-    thar_spectra = SpectrumList(thar_spectra)
 
     # Loop over modes again, such that F12 spectra get solved individually as F1 and F2
     for mode, calibration_set in calibs.items():
         # Store list of extracted ThAr spectra in calibration set
-        calibration_set.thar_spectra = thar_spectra.filter(mode=mode)
+        calibration_set.wavelength_calibs += thar_spectra.filter(mode=mode)
         linelist = LineList.load(LINELIST_PATH)
         # Solve wavelengths for each extracted spectrum
         calibration_set.solve_wavelengths(linelist, savedir=opts.thardir, skip_existing=True)
@@ -274,11 +271,7 @@ def run_inner(opts, logger):
         additional_thars = additional_thars.filter(image_type='THAR')
         additional_thars.list()
         for mode, calibration_set in calibs.items():
-            new = additional_thars.filter(mode=mode)
-            try:
-                calibration_set.wavelength_calibs.extend(new)
-            except AttributeError:
-                calibration_set.wavelength_calibs = new
+            calibration_set.wavelength_calibs += additional_thars.filter(mode=mode)
 
     # Exit if flag --calib-only is set
     if opts.calib_only is True:

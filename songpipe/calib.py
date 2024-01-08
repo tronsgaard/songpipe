@@ -12,7 +12,7 @@ from pyreduce.extract import fix_parameters
 
 from .plotting import plot_order_trace
 from .misc import construct_filename, header_insert
-from .spectrum import Spectrum
+from .spectrum import Spectrum, SpectrumList
 
 from logging import getLogger
 logger = getLogger(__name__)
@@ -52,13 +52,27 @@ class CalibrationSet():
         self.data['bias'] = (None, None)
         self.data['curvature'] = (None, None)
         self.steps = {}
-        
-        self.wavelength_calibs = None
 
     @property
     def step_args(self):
         # (instrument, mode, target, night, output_dir, order_range)
         return (self.instrument, self.mode, None, None, self.output_dir, self.order_range)
+    
+    @property
+    def wavelength_calibs(self):
+        """Ensure that self.wavelength_calibs is never None or undefined"""
+        try:
+            assert isinstance(self._wavelength_calibs, SpectrumList)
+        except (AssertionError, AttributeError):  # wrong type or undefined
+            self._wavelength_calibs = SpectrumList([])
+        return self._wavelength_calibs
+    
+    @wavelength_calibs.setter
+    def wavelength_calibs(self, value):
+        """Ensure that self.wavelength_calibs is always a SpectrumList"""
+        if not isinstance(value, SpectrumList):
+            raise TypeError('wavelength_calibs must be a SpectrumList')
+        self._wavelength_calibs = value
 
     def combine_flats(self, min_flat_images=1):
         """Combine flats"""
@@ -232,15 +246,15 @@ class CalibrationSet():
             # ThAr spectra are supposed to be calibrated by their own wavelength solution
             logger.info('Finding ThAr solution closest in time..')
             try:
-                # self.wavelength_calibs have already been filtered to the correct mode
+                # Assume that self.wavelength_calibs have already been filtered to the correct mode
                 thar_spectra = self.wavelength_calibs.filter(image_type='THAR')
-                thar = thar_spectra.get_closest(image.mjd_mid)
-                wave = thar.wave  # Note: Could be empty, if wavelength solution step was skipped
+                thar = thar_spectra.get_closest(image.mjd_mid)  # Throws IndexError if empty
+                wave = thar.wave  # Note: Could be None, if wavelength solution step was skipped
                 if wave is None:
-                    logger.warning(f'Closest ThAr spectrum has no wavelength solution: {relpath(self.output_dir, thar.filename)}')
+                    logger.warning(f'Closest ThAr spectrum has no wavelength solution: {relpath(thar.filename, self.output_dir)}')
                 else:
                     logger.info(f'Assigned wavelength solution from {relpath(thar.filename, self.output_dir)}')
-            except (TypeError, IndexError):
+            except (IndexError):
                 logger.warning(f'No wavelength solution could be assigned')
         # Save to file
         logger.info(f'Saving spectrum to file: {nameout}')
@@ -376,7 +390,7 @@ class MultiFiberCalibrationSet(CalibrationSet):
             res = sub_mode_calib.save_extracted(image, head, spec[selected], 
                                                 sigma[selected], column_range[selected], 
                                                 savedir=savedir)
-            results.append(res)
+            results += res  # res is a list of one object
         return results
     
     def load_extracted(self, orig_filename, savedir=None):
