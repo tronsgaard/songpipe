@@ -24,54 +24,72 @@ def parse_arguments(basedir):
     # Directory structure
     ap.add_argument('datestr', metavar='date_string', type=str, default=None,
                     help='Night date (as a string), e.g. `20220702`')
-    ap.add_argument('--basedir', type=str, default=basedir, metavar='DIRPATH', 
+    ag = ap.add_argument_group('Directories')
+    ag.add_argument('--basedir', type=str, default=basedir, metavar='DIRPATH', 
                     help=f'Base directory (default: {basedir})')
-    ap.add_argument('--rawdir', type=str, default=None, metavar='DIRPATH', 
+    ag.add_argument('--rawdir', type=str, default=None, metavar='DIRPATH', 
                     help=f'Specify raw directory (default: <basedir>/star_spec/<date_string>/raw)')
-    ap.add_argument('--outdir', type=str, default=None, metavar='DIRPATH', 
+    ag.add_argument('--outdir', type=str, default=None, metavar='DIRPATH', 
                     help=f'Specify raw directory (default: <basedir>/extr_spec/<date_string>)')
-    ap.add_argument('--darkdir', type=str, default=None, metavar='DIRPATH', 
+    ag.add_argument('--darkdir', type=str, default=None, metavar='DIRPATH', 
                     help=f'Specify dark directory (default: <outdir>/dark)')
-    ap.add_argument('--prepdir', type=str, default=None, metavar='DIRPATH', 
+    ag.add_argument('--prepdir', type=str, default=None, metavar='DIRPATH', 
                     help=f'Specify prep directory (default: <outdir>/prep)')
-    ap.add_argument('--calibdir', type=str, default=None, metavar='DIRPATH', 
+    ag.add_argument('--calibdir', type=str, default=None, metavar='DIRPATH', 
                     help=f'Specify calib (flat/trace) directory (default: <outdir>/calib)')
-    ap.add_argument('--thardir', type=str, default=None, metavar='DIRPATH', 
+    ag.add_argument('--thardir', type=str, default=None, metavar='DIRPATH', 
                     help=f'Specify ThAr directory (default: <outdir>/thar)')
-    ap.add_argument('--fpdir', type=str, default=None, metavar='DIRPATH', 
+    ag.add_argument('--fpdir', type=str, default=None, metavar='DIRPATH', 
                     help=f'Specify Fabry-Perót directory (default: <outdir>/fp)')
-    ap.add_argument('--flati2dir', type=str, default=None, metavar='DIRPATH', 
+    ag.add_argument('--flati2dir', type=str, default=None, metavar='DIRPATH', 
                     help=f'Specify flatI2 directory (default: <outdir>/flati2)')
-    ap.add_argument('--stardir', type=str, default=None, metavar='DIRPATH', 
+    ag.add_argument('--stardir', type=str, default=None, metavar='DIRPATH', 
                     help=f'Specify star directory (default: <outdir>/star)')
-    ap.add_argument('--logdir', type=str, default=None, metavar='DIRPATH', 
+    ag.add_argument('--logdir', type=str, default=None, metavar='DIRPATH', 
                     help=f'Specify log directory (default: <outdir>/log)')
-    ap.add_argument('--add-darks', type=str, default=[], action='append', metavar='DIRPATH',
-                    help=f'Specify directory with additional master darks (repeated use allowed)')
-    # Actions
-    ap.add_argument('--obslog-only', action='store_true',
-                    help='Exit after loading files and storing obslog')
-    ap.add_argument('--calib-only', action='store_true',
+    # Calibrations
+    ag = ap.add_argument_group('Calibration')
+    ag.add_argument('--calib-only', action='store_true',
                     help='Exit after reducing calibs and ThAr')
-    ap.add_argument('--extract', action='store', metavar='FILEPATH',
-                    help='Path to a single file to extract (prep file)')
-    ap.add_argument('--plot', action='store_true',
-                    help='Activate plotting in PyReduce')
-    ap.add_argument('--reload-cache', action='store_true',
-                    help='Ignore cached FITS headers and reload from files')
-    ap.add_argument('--simple-extract', action='store_true',
+    ag.add_argument('--ignore-darks', action='store_true',
+                    help='Ignore darks from this night (add darks from other nights using --add-darks)')
+    ag.add_argument('--add-darks', type=str, default=[], action='append', metavar='DIRPATH',
+                    help=f'Specify directory with additional master darks (repeated use allowed)')
+
+    ag.add_argument('--ignore-flats', action='store_true',
+                    help='Ignore flats from this night (copy calibs from another night using --copy-calibs)')
+    ag.add_argument('--copy-calibs', type=str, default=None, metavar='DIRPATH',
+                    help=f'Copy flat calibrations (trace, normflat, scatter) from this directory')
+
+    ag.add_argument('--ignore-thars', action='store_true',
+                    help='Ignore ThAr calibs from this night (add ThAr calibs from other nights using --add-thars)')
+    ag.add_argument('--add-thars', type=str, default=[], action='append', metavar='DIRPATH',
+                    help=f'Specify directory with additional ThAr calibs (repeated use allowed)')
+    # Exctraction
+    ag = ap.add_argument_group('Extraction')
+    ag.add_argument('--simple-extract', action='store_true',
                     help='Extract using simple summation across orders (faster than optimal extraction)')
-    ap.add_argument('--silent', action='store_true',
-                    help='Silent mode (useful when running in background)')
-    ap.add_argument('--skip-obslog', action='store_true',
-                    help='Don\'t save text file with list of observations')
-    ap.add_argument('--skip-flati2', action='store_true',
+    ag.add_argument('--skip-flati2', action='store_true',
                     help='Skip extraction of flatI2 spectra')
-    ap.add_argument('--skip-fp', action='store_true',
+    ag.add_argument('--skip-fp', action='store_true',
                     help='Skip extraction of Fabry Perót (FP) spectra')
-    ap.add_argument('--confirm-settings', action='store_true',
+    ag.add_argument('--extract', action='store', metavar='FILEPATH',
+                    help='Path to a single file to extract (prep file)')
+    # Actions
+    ag = ap.add_argument_group('Actions')
+    ag.add_argument('--confirm-settings', action='store_true',
                     help='Pause script and wait for user to review and confirm settings')
-    ap.add_argument('--debug', action='store_true',
+    ag.add_argument('--plot', action='store_true',
+                    help='Activate plotting in PyReduce')
+    ag.add_argument('--reload-cache', action='store_true',
+                    help='Ignore cached FITS headers and reload from files')
+    ag.add_argument('--skip-obslog', action='store_true',
+                    help='Don\'t save text file with list of observations')
+    ag.add_argument('--obslog-only', action='store_true',
+                    help='Exit after loading files and storing obslog')
+    ag.add_argument('--silent', action='store_true',
+                    help='Silent mode (useful when running in background)')
+    ag.add_argument('--debug', action='store_true',
                     help='Set log level to debug (log everything)')
     # TODO:
     #ap.add_argument('--ignore-existing', action='store_true',
@@ -219,20 +237,27 @@ def log_summary(opts, image_class):
     if opts.skip_flati2 is False:
         logger.info(f'FlatI2 directory:  {opts.flati2dir}')
     logger.info(f'Log directory:     {opts.logdir}')
-    logger.info(f'Add master darks:  {opts.add_darks}')
     logger.info('------------------------')
-    logger.info(f'Obslog only:       {opts.obslog_only}')
-    logger.info(f'Extract:           {opts.extract}')
-    logger.info(f'Plotting:          {opts.plot}')
-    logger.info(f'Reload cache:      {opts.reload_cache}')
+    logger.info(f'Calib only:        {opts.calib_only}')
+    logger.info(f'Ignore darks:      {opts.ignore_darks}')
+    logger.info(f'Add master darks:  {opts.add_darks}')
+    logger.info(f'Ignore flats:      {opts.ignore_flats}')
+    logger.info(f'Copy flat calibs:  {opts.copy_calibs}')
+    logger.info(f'Ignore ThAr calibs:{opts.ignore_thars}')
+    logger.info(f'Add ThAr calibs:   {opts.add_thars}')
+    logger.info('------------------------')
     logger.info(f'Simple extraction: {opts.simple_extract}')
-    logger.info(f'Silent:            {opts.silent}')
-    logger.info(f'Skip obslog:       {opts.skip_obslog}')
     logger.info(f'Skip FLATI2:       {opts.skip_flati2}')
     logger.info(f'Skip Fabry Pérot:  {opts.skip_fp}')
+    logger.info(f'Extract:           {opts.extract}')
+    logger.info('------------------------')
+    logger.info(f'Plotting:          {opts.plot}')
+    logger.info(f'Reload cache:      {opts.reload_cache}')
+    logger.info(f'Skip obslog:       {opts.skip_obslog}')
+    logger.info(f'Obslog only:       {opts.obslog_only}')
+    logger.info(f'Silent:            {opts.silent}')
     logger.info(f'Debug mode:        {opts.debug}')
     logger.info('------------------------')
-
     logger.info(f'Image class: <{image_class.__module__}.{image_class.__name__}>')
     logger.info('------------------------')
 

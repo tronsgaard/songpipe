@@ -3,7 +3,7 @@
 
 import sys
 from os.path import join, exists, relpath, dirname
-from os import makedirs
+from shutil import copytree
 
 import songpipe.running
 from songpipe.image import Image, HighLowImage, ImageList
@@ -61,6 +61,16 @@ def run_inner(opts, logger):
     images = songpipe.running.load_images(filemask, IMAGE_CLASS, outdir=opts.outdir, 
                                           reload_cache=opts.reload_cache, silent=opts.silent)
     
+    # Ignore darks
+    if opts.ignore_darks:
+        images = images.filter(image_type_exclude=['BIAS', 'DARK'])
+    # Ignore flats
+    if opts.ignore_flats:
+        images = images.filter(image_type_exclude=['FLAT'])
+    # Ignore ThAr calibs
+    if opts.ignore_thars:
+        images = images.filter(image_type_exclude=['THAR'])
+
     # Print and store list of observations ("obslog")
     if opts.skip_obslog is False:
         # Write to file and console simultaneously
@@ -87,8 +97,11 @@ def run_inner(opts, logger):
         dark_manager.append_from_filemask(d)
 
     # Now build master bias and master darks from all available exposure times
-    dark_manager.build_master_bias(images, silent=opts.silent)
-    dark_manager.build_all_master_darks(images, silent=opts.silent)
+    if opts.ignore_darks:
+        logger.info('Ignoring darks and bias frames from this night')
+    else:
+        dark_manager.build_master_bias(images, silent=opts.silent)
+        dark_manager.build_all_master_darks(images, silent=opts.silent)
 
     # Check if we have all the needed master darks
     dark_manager.check_exptimes(images.get_exptimes(), min_exptime=MIN_DARK_EXPTIME)
@@ -195,6 +208,13 @@ def run_inner(opts, logger):
     json_outfile = join(opts.logdir, 'config.json')
     with open(json_outfile, 'w') as h:
         h.write(json.dumps(config, indent=2))
+
+    # Copy flat calibrations (trace, normflat, scatter) from another night
+    if opts.copy_calibs is not None:
+        src = opts.copy_calibs
+        dest = opts.calibdir
+        logger.info(f'Copying existing calibrations from {src} to {dest}')
+        copytree(src, dest, dirs_exist_ok=True)
 
     # Set up and link calibration modes for Mt. Kent data
     calibs = {}
