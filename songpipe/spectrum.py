@@ -137,3 +137,8 @@ class SpectrumList(FrameList):
         if len(files) == 0:
             raise FileNotFoundError(f'No files found: {filemask}')
         return cls.from_files(files, limit=limit, silent=silent)
+
+    def filter(self, *args, **kwargs):
+        filtered_spectra = super().filter(*args, **kwargs)
+        # Return new SpectrumList
+        return SpectrumList(filtered_spectra)
