@@ -6,7 +6,8 @@ from os.path import basename, splitext, exists, join, relpath, dirname
 from os import makedirs
 import numpy as np
 from pyreduce import echelle
-from pyreduce.reduce import ScienceExtraction, Flat, OrderTracing, BackgroundScatter, NormalizeFlatField
+from pyreduce.reduce import ScienceExtraction, Flat, OrderTracing, BackgroundScatter, \
+    NormalizeFlatField, WavelengthCalibrationMaster, WavelengthCalibrationFinalize
 from pyreduce.extract import fix_parameters
 
 from .plotting import plot_order_trace
@@ -51,8 +52,8 @@ class CalibrationSet():
         self.data['bias'] = (None, None)
         self.data['curvature'] = (None, None)
         self.steps = {}
-
-        self.wavelength_calibs = []
+        
+        self.wavelength_calibs = None
 
     @property
     def step_args(self):
@@ -196,6 +197,10 @@ class CalibrationSet():
         self.steps['norm_flat'] = step_normflat
 
     def extract(self, image, savedir=None, skip_existing=True, wave=None):
+        """
+        Extract the spectrum and return as <Spectrum> object. 
+        If skip_existing=True, load existing spectrum and return as <Spectrum> object.
+        """
         step_science = ScienceExtraction(*self.step_args, **self.config['science'])
         self.steps['science'] = step_science
         orig_filename = basename(image.filename)
@@ -208,18 +213,36 @@ class CalibrationSet():
             im, head = step_science.calibrate([image.filename], self.mask, self.data['bias'], self.data['norm_flat'])
             spec, sigma, _, column_range = step_science.extract(im, head, self.data['orders'], self.data['curvature'])  # TODO: scattered light as kw arg
             # TODO: Make diagnostic plot
-            return self.save_extracted(orig_filename, head, spec, sigma, column_range, savedir=savedir)
+            return self.save_extracted(image, head, spec, sigma, column_range, savedir=savedir)
             
-    def save_extracted(self, orig_filename, head, spec, sigma, column_range, savedir=None):
+    def save_extracted(self, image, head, spec, sigma, column_range, savedir=None):
+        """Save the extracted spectrum, assigning the nearest wavelength solution if available"""
+        # Determine output filename
+        orig_filename = basename(image.filename)
         nameout = self.get_extracted_filename(orig_filename, savedir=savedir, mode=self.mode)
-        head = header_insert(head, 'PL_MODE', self.mode, 'Observing mode (e.g. fiber)')
-        try:
-            wave = self.wavelength_calibs[0]
-        except IndexError:
-            wave = None
+        # Add mode information to header
+        head = header_insert(head, 'PL_MODE', self.mode, 'Extracted mode (e.g. fiber)')
+        # Pick a wavelength calibration to assign
+        wave = None
+        if image.type != 'THAR':
+            # ThAr spectra are supposed to be calibrated by their own wavelength solution
+            logger.info('Finding ThAr solution closest in time..')
+            try:
+                # self.wavelength_calibs have already been filtered to the correct mode
+                thar_spectra = self.wavelength_calibs.filter(mode='THAR')
+                thar = thar_spectra.get_closest(image.mjd_mid)
+                wave = thar.wave  # Note: Could be empty, if wavelength solution step was skipped
+                if wave is None:
+                    logger.warning(f'Closest ThAr spectrum has no wavelength solution: {relpath(self.output_dir, thar.filename)}')
+                else:
+                    logger.info(f'Assigned wavelength solution from {relpath(self.output_dir, thar.filename)}')
+            except (TypeError, IndexError):
+                logger.warning(f'No wavelength solution could be assigned')
+        # Save to file
         logger.info(f'Saving spectrum to file: {nameout}')
         makedirs(dirname(nameout), exist_ok=True)
         echelle.save(nameout, head, spec=spec, sig=sigma, wave=wave, columns=column_range)
+        # Return as Spectrum object
         return [Spectrum(filename=nameout)]
     
     def load_extracted(self, orig_filename, savedir=None):
@@ -290,26 +313,25 @@ class MultiFiberCalibrationSet(CalibrationSet):
         
         self.plot_trace()
 
-    def save_extracted(self, orig_filename, head, spec, sigma, column_range, savedir=None):
-        """Ensure that each fiber is saved to a separate file"""
-
+    def save_extracted(self, image, head, spec, sigma, column_range, savedir=None):
+        """
+        Save the extracted spectrum, ensuring that each fiber is saved to a 
+        separate file and assigning the nearest wavelength solution if available
+        """
         # Split extracted orders into modes/fibers
         results = []
         for sub_mode in self.sub_modes:
             selected = self.order_modes == sub_mode  # E.g. all orders from F1
             nord = np.sum(selected)
+            logger.info(f'Preparing to save {nord} orders from mode {sub_mode}')
 
+            head = header_insert(head, 'PL_OMODE', self.mode, 'Original mode (e.g. fiber)')
+            sub_mode_calib = self.sub_mode_calibs[sub_mode]
             # Save this mode
-            nameout = self.get_extracted_filename(orig_filename, savedir=savedir, mode=sub_mode)
-            head = header_insert(head, 'PL_MODE', sub_mode, 'Observing mode (e.g. fiber)')
-            try:
-                whead, wave = self.sub_mode_calibs[sub_mode].wavelength_calibs[0]
-            except IndexError:
-                whead, wave = None, None
-            logger.info(f'Saving {nord} orders from mode {sub_mode} to file: {nameout}')
-            makedirs(dirname(nameout), exist_ok=True)
-            echelle.save(nameout, head, spec=spec[selected], sig=sigma[selected], columns=column_range[selected], wave=wave)
-            results.append(Spectrum(filename=nameout))
+            res = sub_mode_calib.save_extracted(image, head, spec[selected], 
+                                                sigma[selected], column_range[selected], 
+                                                savedir=savedir)
+            results.append(res)
         return results
     
     def load_extracted(self, orig_filename, savedir=None):
