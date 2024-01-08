@@ -252,7 +252,6 @@ def run_inner(opts, logger):
     for mode, calibration_set in calibs.items():
         # For each mode/calibration set, extract all ThAr spectra
         for im in thar_images.filter(mode=mode):
-            # FIXME: Use the right config for ThAr extraction?
             result = calibration_set.extract(im, savedir=opts.thardir)
             thar_spectra += result  # extract() always outputs a list of spectra
     

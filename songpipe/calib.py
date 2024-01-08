@@ -202,15 +202,20 @@ class CalibrationSet():
         If skip_existing=True, load existing spectrum and return as <Spectrum> object.
         """
         orig_filename = basename(image.filename)
-        logger.info(f'Working on file: {orig_filename}')
         if self.check_extracted_exists(orig_filename, savedir=savedir) and skip_existing is True:
             logger.info(f'Extracted spectrum already exists for {orig_filename}')
             # FIXME: Check if wavelength solution needs to be appended
             return self.load_extracted(orig_filename, savedir=savedir)
         else:
             logger.info(f'Working on file: {orig_filename}')
+            # Using step ScienceExtraction for both science and wave - only config changes
+            if image.type == 'THAR':
+                config = self.config['wavecal_master']
+            else:
+                config = self.config['science']
             step_science = ScienceExtraction(*self.step_args, **config)
             im, head = step_science.calibrate([image.filename], self.mask, self.data['bias'], self.data['norm_flat'])
+            spec, sigma, _, column_range = step_science.extract(im, head, self.data['orders'], self.data['curvature'], scatter=self.data['scatter'])
             # TODO: Make diagnostic plot
             return self.save_extracted(image, head, spec, sigma, column_range, savedir=savedir)
             
