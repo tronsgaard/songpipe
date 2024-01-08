@@ -142,3 +142,14 @@ class SpectrumList(FrameList):
         filtered_spectra = super().filter(*args, **kwargs)
         # Return new SpectrumList
         return SpectrumList(filtered_spectra)
+
+    def append(self, spectrum):
+        """Append a spectrum, if duplicate remove old entry"""
+        if type(spectrum) != Spectrum:
+            raise TypeError(f'Wrong type ({type(spectrum)}) - cannot append to SpectrumList')
+        super().append(spectrum)
+
+    def extend(self, spectra):
+        """Extend with a list of spectra, removing duplicates in the process"""
+        for spectrum in spectra:
+            self.append(spectrum)

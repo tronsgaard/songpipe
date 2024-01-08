@@ -63,7 +63,7 @@ class DarkManager(ImageList):
             master_bias.save_fits(outfile, overwrite=True, dtype='float32')
 
         # Add bias to master list and return
-        self.append_image(master_bias)
+        self.append(master_bias)
         return master_bias
 
     
@@ -92,7 +92,7 @@ class DarkManager(ImageList):
             master_dark.save_fits(outfile, overwrite=True, dtype='float32')
     
         # Add to master list and return
-        self.append_image(master_dark)
+        self.append(master_dark)
         return master_dark
     
     def build_all_master_darks(self, images, exptime_tol=DEFAULT_EXPTIME_TOL, silent=False):

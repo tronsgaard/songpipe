@@ -406,7 +406,7 @@ class HighLowImage(Image):
 
 class ImageList(FrameList):
     def __init__(self, images, image_class=None):
-        """If argument `images` is an empty list, please require """
+        """If argument `images` is an empty list, `image_class` must be specified"""
         if isinstance(images, ImageList):
             self.images = images.images
         else:
@@ -443,21 +443,17 @@ class ImageList(FrameList):
         return self.images  # hack that ensures methods from FrameList will work
                             # Ideally self.images should be renamed
         
-    def append_image(self, image):
+    def append(self, image):
         if type(image) != self.image_class:
             raise TypeError(f'Wrong image class ({self.image_class}) - cannot append to this ImageList')
-        if image.filename is not None:
-            for i,im in enumerate(self.images):
-                if im.filename == image.filename:
-                    self.images.pop(i)  # Remove old image object with matching filename
-        self.images.append(image)
+        super().append(image)
 
     def append_from_files(self, files, limit=None, silent=False):
         """Add images from a list of filenames"""
         files = apply_limit(files, limit)
         for f in tqdm(files, disable=silent):
             image = self.image_class(filename=f)
-            self.append_image(image)
+            self.append(image)
 
     def append_from_filemask(self, filemask, limit=None, silent=False):
         """Add images from a filemask"""

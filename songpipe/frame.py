@@ -203,6 +203,13 @@ class FrameList:
         """Passes all arguments to self.filter() and counts the number of frames returned"""
         res = self.filter(**kwargs)
         return len(res)
+    
+    def append(self, frame):
+        if frame.filename is not None:
+            for i,f in enumerate(self.frames):
+                if f.filename == frame.filename:
+                    self.frames.pop(i)  # Remove old image object with matching filename
+        self.frames.append(frame)
 
     def list(self, add_keys=None, outfile=None, silent=False):
         """
