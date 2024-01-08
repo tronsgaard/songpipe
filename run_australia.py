@@ -16,6 +16,7 @@ MIN_BIAS_IMAGES = 11  # Minimum number of bias images
 MIN_DARK_IMAGES = 5   # Minimum number of dark images
 MIN_DARK_EXPTIME = 10.0  # Ignore if darks are missing for exposures shorter than this (seconds)
 MIN_FLAT_IMAGES = 11  # Minimum number of flat images
+LINELIST_PATH = join(dirname(__file__), 'linelists/test_thar_fib2_2D.npz')
 
 # Select image class (single channel or high/low gain)
 # TODO: Should this be done automatically, by date or by analyzing the first FITS file?
@@ -164,10 +165,9 @@ def run_inner(opts, logger):
     import pyreduce
     from pyreduce.configuration import get_configuration_for_instrument
     from pyreduce.instruments.common import create_custom_instrument
-    from pyreduce.reduce import WavelengthCalibrationFinalize
     from pyreduce.wavelength_calibration import LineList
-    from pyreduce import echelle
     from songpipe.calib import CalibrationSet, MultiFiberCalibrationSet  # Modified version
+    from songpipe.spectrum import SpectrumList
 
     log_file = join(opts.logdir, 'songpipe.log')
     logger = songpipe.running.setup_logger(log_file, silent=opts.silent)  # Do this again to remove the pyreduce logger that loads on import
@@ -220,47 +220,28 @@ def run_inner(opts, logger):
         calibration_set.normalize_flat()
 
     # Extract and calibrate all ThAr spectra
+    logger.info('Preparing to extract and calibrate ThAr spectra')
     thar_images = prep_images.filter(image_type='THAR')
     thar_images.list()
 
     thar_spectra = []
-    for im in thar_images:
-        mode = im.mode
-        calibration_set = calibs[mode]
-        thar_spectra += calibration_set.extract(im, savedir=opts.thardir)
+    for mode, calibration_set in calibs.items():
+        # For each mode/calibration set, extract all ThAr spectra
+        for im in thar_images.filter(mode=mode):
+            # FIXME: Use the right config for ThAr extraction?
+            result = calibration_set.extract(im, savedir=opts.thardir)
+            thar_spectra += result  # extract() always outputs a list of spectra
+    
+    # Turn the list into a SpectrumList object
+    thar_spectra = SpectrumList(thar_spectra)
 
-    for thar in thar_spectra:
-        mode = thar.mode
-        calibration_set = calibs[mode]
-
-        head = thar.header
-        data = fits.getdata(thar.filename)
-        data = {column.lower(): data[column][0] for column in data.dtype.names}
-        spec = data['spec']
-
-        if 'wave' in data:
-            logger.info(f'Wavelength solution already exists for file {relpath(thar.filename, opts.outdir)}')
-            wave = data['wave']
-        else:
-            logger.info(f'Wavelength calibration: {relpath(thar.filename, opts.outdir)}')
-
-            #step_args = calibration_set.step_args
-            # (instrument, mode, target, night, output_dir, order_range)
-            step_args = (instrument, mode, None, None, opts.thardir, calibration_set.order_range)
-            step_wavecal = WavelengthCalibrationFinalize(*step_args, **config['wavecal'])
-
-            wavecal_master = (spec, head)
-            reference = join(dirname(__file__), 'linelists/test_thar_fib2_2D.npz')
-            wavecal_init = LineList.load(reference)
-            wave, coef, linelist = step_wavecal.run(wavecal_master, wavecal_init)
-            # Save the coefficients and linelist in npz file
-            savefile = join(opts.thardir, thar.construct_filename(ext='.thar.npz', mode=mode, object=None))
-            np.savez(savefile, wave=wave, coef=coef, linelist=linelist)
-            # Save .ech compatible FITS file
-            data['wave'] = wave 
-            echelle.save(thar.filename, head, **data)
-
-        calibration_set.wavelength_calibs.append((head, wave))
+    # Loop over modes again, such that F12 spectra get solved individually as F1 and F2
+    for mode, calibration_set in calibs.items():
+        # Store list of extracted ThAr spectra in calibration set
+        calibration_set.thar_spectra = thar_spectra.filter(mode=mode)
+        linelist = LineList.load(LINELIST_PATH)
+        # Solve wavelengths for each extracted spectrum
+        calibration_set.solve_wavelengths(linelist, savedir=opts.thardir, skip_existing=True)
 
     # Exit if flag --calib-only is set
     if opts.calib_only is True:

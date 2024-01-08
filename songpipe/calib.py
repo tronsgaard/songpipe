@@ -260,6 +260,41 @@ class CalibrationSet():
     
     def check_extracted_exists(self, orig_filename, savedir=None):
         return exists(self.get_extracted_filename(orig_filename, savedir=savedir, mode=self.mode))
+    
+    def solve_wavelengths(self, linelist, savedir=None, skip_existing=True):
+        """Solve all ThAr spectra i self.thar_spectra"""
+        if savedir is None:
+            savedir = self.output_dir
+
+        nthar = len(self.thar_spectra)
+        if nthar == 0:
+            logger.info(f'No ThAr spectra to solve in mode {self.mode}')
+            return
+        
+        logger.info(f'Solving ThAr wavelengths for mode {self.mode} ({nthar} ThAr spectra)')
+
+        # Loop through ThAr spectra
+        for thar in self.thar_spectra:
+            if thar.wave is not None and skip_existing is True:
+                logger.info(f'Wavelength solution already exists in file {relpath(thar.filename, self.output_dir)}')
+            else:
+                logger.info(f'Wavelength calibration: {relpath(thar.filename, self.output_dir)}')
+                
+                #step_args = calibration_set.step_args
+                # (instrument, mode, target, night, output_dir, order_range)
+                step_args = (self.instrument, self.mode, None, None, savedir, self.order_range)
+                step_wavecal = WavelengthCalibrationFinalize(*step_args, **self.config['wavecal'])
+
+                wavecal_master = (thar.spec, thar.header)
+                wave, coef, linelist = step_wavecal.run(wavecal_master, linelist)
+                # Save the coefficients and linelist in npz file
+                # (PyReduce also already saved an npz file with a generic name, 
+                # which gets overwritten in each step of this loop)
+                savefile = join(savedir, thar.construct_filename(ext='.thar.npz', mode=self.mode, object=None))
+                np.savez(savefile, wave=wave, coef=coef, linelist=linelist)
+                # Add to Spectrum object and save to ech/FITS file
+                thar.wave = wave
+                thar.save()
 
 
 class MultiFiberCalibrationSet(CalibrationSet):
