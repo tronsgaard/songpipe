@@ -377,11 +377,11 @@ class FrameList:
         frame, d = res[0]
         # Log nicely
         if d < 1/24:
-            logger.debug(f'Found image closest in time: {24*60*d:.2f} minutes')
+            logger.debug(f'Found frame closest in time: {24*60*d:.2f} minutes')
         elif d < 1:
-            logger.debug(f'Found image closest in time: {24*d:.2f} hours')
+            logger.debug(f'Found frame closest in time: {24*d:.2f} hours')
         else:
-            logger.debug(f'Found image closest in time: {d:.2f} days')
+            logger.debug(f'Found frame closest in time: {d:.2f} days')
         if frame.filename is not None:
             logger.debug(f'Filename: {frame.filename}')
         return frame
