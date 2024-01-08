@@ -201,8 +201,6 @@ class CalibrationSet():
         Extract the spectrum and return as <Spectrum> object. 
         If skip_existing=True, load existing spectrum and return as <Spectrum> object.
         """
-        step_science = ScienceExtraction(*self.step_args, **self.config['science'])
-        self.steps['science'] = step_science
         orig_filename = basename(image.filename)
         logger.info(f'Working on file: {orig_filename}')
         if self.check_extracted_exists(orig_filename, savedir=savedir) and skip_existing is True:
@@ -210,8 +208,9 @@ class CalibrationSet():
             # FIXME: Check if wavelength solution needs to be appended
             return self.load_extracted(orig_filename, savedir=savedir)
         else:
+            logger.info(f'Working on file: {orig_filename}')
+            step_science = ScienceExtraction(*self.step_args, **config)
             im, head = step_science.calibrate([image.filename], self.mask, self.data['bias'], self.data['norm_flat'])
-            spec, sigma, _, column_range = step_science.extract(im, head, self.data['orders'], self.data['curvature'])  # TODO: scattered light as kw arg
             # TODO: Make diagnostic plot
             return self.save_extracted(image, head, spec, sigma, column_range, savedir=savedir)
             
