@@ -263,6 +263,20 @@ def run_inner(opts, logger):
         # Solve wavelengths for each extracted spectrum
         calibration_set.solve_wavelengths(linelist, savedir=opts.thardir, skip_existing=True)
 
+    # Add fallback ThAr calibs from different nights
+    for d in opts.add_thars:
+        d = join(d, '*.fits')
+        logger.info(f'Loading additional ThAr calibs from {d}')
+        additional_thars = SpectrumList.from_filemask(d)
+        additional_thars = additional_thars.filter(image_type='THAR')
+        additional_thars.list()
+        for mode, calibration_set in calibs.items():
+            new = additional_thars.filter(mode=mode)
+            try:
+                calibration_set.wavelength_calibs.extend(new)
+            except AttributeError:
+                calibration_set.wavelength_calibs = new
+
     # Exit if flag --calib-only is set
     if opts.calib_only is True:
         sys.exit()

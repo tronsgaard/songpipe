@@ -229,13 +229,13 @@ class CalibrationSet():
             logger.info('Finding ThAr solution closest in time..')
             try:
                 # self.wavelength_calibs have already been filtered to the correct mode
-                thar_spectra = self.wavelength_calibs.filter(mode='THAR')
+                thar_spectra = self.wavelength_calibs.filter(image_type='THAR')
                 thar = thar_spectra.get_closest(image.mjd_mid)
                 wave = thar.wave  # Note: Could be empty, if wavelength solution step was skipped
                 if wave is None:
                     logger.warning(f'Closest ThAr spectrum has no wavelength solution: {relpath(self.output_dir, thar.filename)}')
                 else:
-                    logger.info(f'Assigned wavelength solution from {relpath(self.output_dir, thar.filename)}')
+                    logger.info(f'Assigned wavelength solution from {relpath(thar.filename, self.output_dir)}')
             except (TypeError, IndexError):
                 logger.warning(f'No wavelength solution could be assigned')
         # Save to file
@@ -262,11 +262,17 @@ class CalibrationSet():
         return exists(self.get_extracted_filename(orig_filename, savedir=savedir, mode=self.mode))
     
     def solve_wavelengths(self, linelist, savedir=None, skip_existing=True):
-        """Solve all ThAr spectra i self.thar_spectra"""
+        """Solve all ThAr spectra i self.wavelength_calibs"""
         if savedir is None:
             savedir = self.output_dir
 
-        nthar = len(self.thar_spectra)
+        try:
+            thar_spectra = self.wavelength_calibs.filter(image_type='THAR')
+            nthar = len(thar_spectra)
+        except AttributeError:
+            # wavelength_calibs is None
+            nthar = 0
+
         if nthar == 0:
             logger.info(f'No ThAr spectra to solve in mode {self.mode}')
             return
@@ -274,7 +280,7 @@ class CalibrationSet():
         logger.info(f'Solving ThAr wavelengths for mode {self.mode} ({nthar} ThAr spectra)')
 
         # Loop through ThAr spectra
-        for thar in self.thar_spectra:
+        for thar in thar_spectra:
             if thar.wave is not None and skip_existing is True:
                 logger.info(f'Wavelength solution already exists in file {relpath(thar.filename, self.output_dir)}')
             else:
