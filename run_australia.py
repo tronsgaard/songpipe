@@ -178,7 +178,6 @@ def run_inner(opts, logger):
     import pyreduce
     from pyreduce.configuration import get_configuration_for_instrument
     from pyreduce.instruments.common import create_custom_instrument
-    from pyreduce.wavelength_calibration import LineList
     from songpipe.calib import CalibrationSet, MultiFiberCalibrationSet  # Modified version
     from songpipe.spectrum import SpectrumList
 
@@ -259,9 +258,8 @@ def run_inner(opts, logger):
     for mode, calibration_set in calibs.items():
         # Store list of extracted ThAr spectra in calibration set
         calibration_set.wavelength_calibs += thar_spectra.filter(mode=mode)
-        linelist = LineList.load(LINELIST_PATH)
         # Solve wavelengths for each extracted spectrum
-        calibration_set.solve_wavelengths(linelist, savedir=opts.thardir, skip_existing=True)
+        calibration_set.solve_wavelengths(LINELIST_PATH, savedir=opts.thardir, skip_existing=True)
 
     # Add fallback ThAr calibs from different nights
     for d in opts.add_thars:

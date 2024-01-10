@@ -9,6 +9,7 @@ from pyreduce import echelle
 from pyreduce.reduce import ScienceExtraction, Flat, OrderTracing, BackgroundScatter, \
     NormalizeFlatField, WavelengthCalibrationMaster, WavelengthCalibrationFinalize
 from pyreduce.extract import fix_parameters
+from pyreduce.wavelength_calibration import LineList
 
 from .plotting import plot_order_trace
 from .misc import construct_filename, header_insert
@@ -282,7 +283,7 @@ class CalibrationSet():
     def check_extracted_exists(self, orig_filename, savedir=None):
         return exists(self.get_extracted_filename(orig_filename, savedir=savedir, mode=self.mode))
     
-    def solve_wavelengths(self, linelist, savedir=None, skip_existing=True):
+    def solve_wavelengths(self, linelist_path, savedir=None, skip_existing=True):
         """Solve all ThAr spectra i self.wavelength_calibs"""
         if savedir is None:
             savedir = self.output_dir
@@ -313,6 +314,7 @@ class CalibrationSet():
                 step_wavecal = WavelengthCalibrationFinalize(*step_args, **self.config['wavecal'])
 
                 wavecal_master = (thar.spec, thar.header)
+                linelist = LineList.load(linelist_path)
                 wave, coef, linelist = step_wavecal.run(wavecal_master, linelist)
                 # Save the coefficients and linelist in npz file
                 # (PyReduce also already saved an npz file with a generic name, 
