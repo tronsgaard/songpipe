@@ -30,6 +30,7 @@ class DarkManager(ImageList):
         self.min_dark_images = min_dark_images
         self.min_bias_images = min_bias_images
         self.combine_method = combine_method
+        logger.info('DarkManager initialized.')
         logger.warning('"The fear of loss is a path to the dark side." -Yoda')  # Set the right mood
     
     def construct_filename(self, exptime):

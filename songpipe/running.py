@@ -301,6 +301,7 @@ def load_images(filemask, image_class, reload_cache=False, outdir=dirname(__name
         logger.info(f'Loaded {len(images)} images')
         try:
             # Save objects for next time
+            logger.info(f'Saving cache file: {cachefile}')
             import dill
             with open(cachefile, 'wb') as h:
                 dill.dump((images, songpipe_version), h)
