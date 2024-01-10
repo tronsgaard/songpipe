@@ -196,6 +196,7 @@ def run_inner(opts, logger):
     config['norm_flat']['smooth_slitfunction'] = 2 
     config['science']['extraction_width'] = 0.4
     config['wavecal_master']['extraction_width'] = 0.4
+    config['wavecal_master']['collapse_function'] = 'sum'
     config['wavecal']['correlate_cols'] = 512
     config['wavecal']['threshold']      = 2500
     config['wavecal']['degree']         = [ 5, 6 ]
