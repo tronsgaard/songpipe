@@ -200,7 +200,7 @@ def run_inner(opts, logger):
     config['wavecal']['threshold']      = 2500
     config['wavecal']['degree']         = [ 5, 6 ]
     config['wavecal']['iterations']     = 5
-    config['wavecal']['medium']         = 'air'        
+    config['wavecal']['medium']         = 'air'
     
     if opts.simple_extract:
         config['science']['collapse_function'] = 'sum' 
