@@ -319,7 +319,8 @@ class FrameList:
 
     def filter(self, object_contains=None, object_exact=None, 
                filename_contains=None, filename_exact=None,
-               image_type=None, image_type_exclude=None, mode=None, 
+               image_type=None, image_type_exclude=None, 
+               mode=None, mode_exclude=None,
                exptime=None, exptime_lte=None, exptime_tol=0.1, 
                limit=None):
         """
@@ -333,6 +334,7 @@ class FrameList:
             image_type :        Filter by image type or list of image types (e.g. `BIAS`, `STAR`)
             image_type_exclude: Exclude image type or list of image types
             mode :              Filter by instrument mode or list of modes (e.g. `F1`)
+            mode_exclude :      Exclude instrument mode or list of instrument modes
             exptime :           Filter by exposure time
             exptimel_lt :       Filter by exposure time less than
             exptime_tol :       Tolerance used for exposure time filter (default: 0.1 s)
@@ -372,6 +374,11 @@ class FrameList:
             if mode is not None:
                 mode = _ensure_list(mode)
                 if im.mode not in mode:
+                    mask[k] = False
+                    continue
+            if mode_exclude is not None:
+                mode_exclude = _ensure_list(mode_exclude)
+                if im.mode in mode_exclude:
                     mask[k] = False
                     continue
             if exptime is not None and np.abs(exptime - im.exptime) > exptime_tol:
