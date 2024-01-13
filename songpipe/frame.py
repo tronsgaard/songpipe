@@ -84,7 +84,7 @@ class Frame:
     @property
     def is_tenerife(self):
         """Check if this frame comes from Tenerife"""
-        return True if self.observatory == 'Observatorio del Teide' else False
+        return True if self.observatory in ('Observatorio del Teide', 'Tenerife') else False
 
     @property
     def mode(self):
