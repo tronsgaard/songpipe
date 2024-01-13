@@ -57,7 +57,21 @@ def run_inner(opts, logger):
     # to disk in a single file (<outdir>/.songpipe_cache) using `dill` (similar to `pickle`).
     # This speeds up the loading if the pipeline needs to run again.
     filemask = join(opts.rawdir, '*.fits')
-    images = songpipe.running.load_images(filemask, IMAGE_CLASS, outdir=opts.outdir, 
+
+    # Load ignore list
+    ignore_list = []
+    try:
+        with open(join(opts.rawdir, '.songpipe_ignore')) as h:
+            for line in h:
+                try:
+                    item = line.split(' ')[0]
+                    ignore_list.append(item)
+                except:
+                    pass
+    except FileNotFoundError:
+        logger.info('Ignore list not found')
+    print(ignore_list)
+    images = songpipe.running.load_images(filemask, IMAGE_CLASS, ignore_list=ignore_list, outdir=opts.outdir, 
                                           reload_cache=opts.reload_cache, silent=opts.silent)
     
     # Ignore darks

@@ -432,8 +432,20 @@ class ImageList(FrameList):
         return ImageList(images)
 
     @classmethod
-    def from_filemask(cls, filemask, image_class=Image, limit=None, silent=False):
+    def from_filemask(cls, filemask, ignore_list=None, image_class=Image, limit=None, silent=False):
+        """Initialize ImageList from a glob-compatible filemask"""
         files = glob(filemask)
+        nfiles = len(files)
+        # Check files against ignore list 
+        if ignore_list is not None:
+            files_new = []
+            for f in files:
+                if basename(f) in ignore_list:
+                    logger.info(f'File ignored: {f}')
+                else:
+                    files_new.append(f)
+            files = files_new
+
         if len(files) == 0:
             raise FileNotFoundError(f'No images found: {filemask}')
         return cls.from_files(files, image_class=image_class, limit=limit, silent=silent)
