@@ -57,7 +57,7 @@ def median_combine(images, nallocate=10, silent=False):
         im.open_file(memmap=True)
 
     # Configure stripes
-    height, width = im.shape  # Image dimension
+    width, height = im.shape  # Image dimension
     n = len(images)
     stripeheight = height // n * nallocate  # Allocate memory corresponding to `nallocate` frames
     nstripes = int(np.ceil(height / stripeheight))
