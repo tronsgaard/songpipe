@@ -8,7 +8,7 @@ import astropy.io.fits as fits
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 
-from .misc import apply_limit, header_insert
+from .misc import apply_limit, header_insert, evaluate_range, transpose_range
 
 import logging
 logger = logging.getLogger(__name__)
@@ -57,7 +57,7 @@ def median_combine(images, nallocate=10, silent=False):
         im.open_file(memmap=True)
 
     # Configure stripes
-    width, height = im.shape  # Image dimension
+    height, width = im.shape  # Image dimension
     n = len(images)
     stripeheight = height // n * nallocate  # Allocate memory corresponding to `nallocate` frames
     nstripes = int(np.ceil(height / stripeheight))
@@ -73,8 +73,8 @@ def median_combine(images, nallocate=10, silent=False):
         # Loop over images
         x = np.zeros((n, stop - start, width))
         for i, im in tqdm(enumerate(images), leave=False, unit_scale=True, disable=silent):
-            h = im.file_handle
-            x[i] = h[im.ext].data[start:stop, :]
+            #x[i] = h[im.ext].data[start:stop, :]
+            x[i] = im.get_data(yrange=(start, stop), memmap=True, leave_open=True)
             t.update()  # Progress bar
         result[start:stop, :] = np.median(x, axis=0)
 
@@ -115,18 +115,29 @@ CLASS DEFINITIONS
 class Image(Frame):
     """Represents a normal, single FITS image"""
 
+    # Defines the area of the raw image to load
+    XWINDOW = (None, None)
+    YWINDOW = (None, None)
+
     def __init__(self, header=None, data=None, filename=None, ext=0, parent=None):
         self._header = header
         self._data = data
+        self._shape = None
         self.filename = filename
         self.ext = ext
         self.parent = parent  # Enables us to go back to a HighLowImage and look in the primary header
         self.file_handle = None
 
+        # Get shape
+        if self._data is not None:
+            self._shape = data.shape
+
         # Load header from file
         if self._header is None and self._data is None:
             with fits.open(filename) as h:
                 self._header = h[ext].header  # Don't load data yet
+                if self._shape is None:
+                    self._shape = h[ext].shape
 
         # Create empty header if necessary
         if self._header is None:
@@ -147,7 +158,12 @@ class Image(Frame):
     @property
     def shape(self):
         """Return the shape of the data array"""
-        return (self.header['NAXIS1'], self.header['NAXIS2'])
+        #return (self.header['NAXIS1'], self.header['NAXIS2'])
+        ymax, xmax = self._shape  # Original shape
+        xwin = evaluate_range(self.XWINDOW, xmax)
+        ywin = evaluate_range(self.YWINDOW, ymax)
+        win_shape = (ywin[1]-ywin[0], xwin[1]-xwin[0])
+        return win_shape 
 
     @property
     def bias_subtracted(self):
@@ -171,20 +187,76 @@ class Image(Frame):
             return False
 
     # Data handling
+    def subtract_overscan(self, data):
+        """Subtracts the prescan/overscan level"""
+        return data  # Do nothing (override with subclass)
+
+    def get_data(self, xrange=None, yrange=None, scale=True, 
+                 remove_overscan=True, memmap=True, leave_open=False):
+        """
+        Get data from cache or file, 
+        apply scaling, subtract overscan, return the resulting image.
+        x and y range refers to the physical image region, ignoring overscan
+        """
+        xrange = xrange or (None, None)  # Replaces None with (None, None)
+        yrange = yrange or (None, None)
+        
+        # If the (full) image is already loaded in, just get what we need from self._data
+        if self._data is not None and scale is True and remove_overscan is True:
+            return self._data[slice(*yrange), slice(*xrange)]  # Scaling and overscan already applied
+        
+        # Otherwise, fetch from file (use memmap=True to avoid loading the entire file)
+        h = self.open_file(memmap=memmap)
+        if remove_overscan is True:
+            # Evaluate window definition; get rid of None values
+            ymax, xmax = self._shape  # Original shape of data, before cropping
+            xwin = evaluate_range(self.XWINDOW, xmax)
+            ywin = evaluate_range(self.YWINDOW, ymax)
+
+            # Transpose xrange and yrange to window
+            ymax, xmax = self.shape  # Shape of window
+            xrange = evaluate_range(xrange, xmax)
+            yrange = evaluate_range(yrange, ymax)
+
+            xtrans = transpose_range(xrange, xwin)
+            ytrans = transpose_range(yrange, ywin)
+
+            # Crop
+            data = h[self.ext].data[slice(*ytrans), slice(*xtrans)]
+
+            # Subtract overscan
+            data = self.subtract_overscan(data)
+        else:
+            data = h[self.ext].data[slice(*yrange), slice(*xrange)]
+        # Apply scaling
+        if scale:
+            bzero = self.header.get('BZERO', 0)
+            bscale = self.header.get('BSCALE', 1)
+            data = bzero + data * bscale
+        # Close file
+        if leave_open is False:
+            self.close_file()
+        return data
+        
+
     def load_data(self):
-        """Load data from file"""
+        """Load data from file to memory"""
         logger.info(f'Loading FITS data from "{self.filename}" (ext {self.ext})')
-        self.open_file()
-        self._data = self.file_handle[self.ext].data
-        self.close_file()
+        self._data = self.get_data(memmap=False, leave_open=False)  # Closes handle
 
     def open_file(self, memmap=False):
-        """Open a file handle """
-        if self.filename is not None:
-            self.file_handle = fits.open(self.filename, memmap=memmap)
-            return self.file_handle
-        else:
-            raise ValueError('No such file!')
+        """Open a file handle (HDUList)"""
+        if self.filename is None:
+            raise ValueError('Filename is empty!')
+        # If already open, check if it uses the same memmap setting
+        if self.file_handle is not None and self.file_handle._file.memmap is not memmap:
+            self.close_file()  # Sets to None
+        # Open file handle
+        if self.file_handle is None:
+            self.file_handle = fits.open(self.filename, memmap=memmap, 
+                                         do_not_scale_image_data=True)
+        # Also returns existing handle if file was already open
+        return self.file_handle
 
     def close_file(self):
         """Close open file handle"""
@@ -193,8 +265,8 @@ class Image(Frame):
             self.file_handle = None  # If we don't do this, the memory allocation seems to persist, 
                                      # even after closing the file and deleting other references to 
                                      # the data, leading to a memory leak when working on many files.
-        except AttributeError:
-            pass
+        except AttributeError as e:
+            logger.warning(f'Cannot close file handle to {self.filename}. May already be closed. Continuing..')
 
     def clear_data(self):
         """Clear cached data"""
@@ -402,7 +474,33 @@ class HighLowImage(Image):
         merged[mask] = low_gain_data[mask]
 
         return Image(data=merged, header=self.header)
-    
+
+class QHYImage(Image):
+    """
+    Represents a CMOS image from the QHY detectors installed in 2024
+    Mirrors the FITS structure with image and image header in a separate HDU.
+    """
+    XWINDOW = (24,9600)
+    YWINDOW = (0,6388)
+
+
+class AndorImage(Image):
+    """Represents a CCD image with prescan/overscan regions"""
+    YWINDOW = (20, 2068)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._overscan_level = None
+
+    def subtract_overscan(self, data):
+        """Subtracts the prescan/overscan level from input data"""
+        # TODO: Fit and subtract ramp or surface instead of constant offset
+        if self._overscan_level is None:
+            prescan = self.get_data(yrange=(5, 20), remove_overscan=False)
+            overscan = self.get_data(yrange=(2068, 2083), remove_overscan=False)
+            self._overscan_level = np.median(np.hstack(prescan, overscan))
+        
+        return data - self._overscan_level
 
 class ImageList(FrameList):
     def __init__(self, images, image_class=None):

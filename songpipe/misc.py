@@ -99,3 +99,32 @@ def apply_limit(array, limit):
         limit = (limit,)
     return array[slice(*limit)]
 
+
+def evaluate_range(start_stop:tuple, maximum:int):
+    """
+    Evaluate pixel range tuple (start, stop) to get rid of None values.
+    `maximum` is the size of the image in the relevant dimension
+    """
+    if start_stop is None:
+        start, stop = None, None
+    else:
+        start, stop = start_stop
+    # Replace None
+    start = start or 0
+    stop = stop or maximum
+    # Enforce limits
+    start = max(0, start)  # start >= 0
+    stop = min(stop, maximum)  # stop <= max
+    return (start, stop)
+
+
+def transpose_range(start_stop:tuple, transpose_to:tuple): 
+    """
+    Transpose range to within another range.
+    E.g. transpose_range((30, 40), (5,40)) will return (35,40)
+    """
+    s0, s1 = start_stop
+    t0, t1 = transpose_to
+    u0 = min(s0 + t0, t1)
+    u1 = min(s1 + t0, t1)
+    return (u0, u1)
