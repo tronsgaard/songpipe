@@ -6,7 +6,7 @@ from os.path import join, exists, relpath, dirname
 from shutil import copytree
 
 import songpipe.running
-from songpipe.image import Image, HighLowImage, ImageList
+from songpipe.image import Image, HighLowImage, ImageList, QHYImage
 from songpipe.dark import DarkManager
 
 # SONGpipe settings

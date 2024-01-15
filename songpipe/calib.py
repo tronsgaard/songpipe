@@ -133,11 +133,11 @@ class CalibrationSet():
             self.plot_trace()
             return (orders, column_range)
 
-    def plot_trace(self, **kwargs):
+    def plot_trace(self, overwrite=False,**kwargs):
         """Custom order plot"""
         #name, _ = splitext(self.steps['orders'].savefile)
         savename = join(self.output_dir, f"plot_trace_{self.mode}.png")
-        if self.skip_existing and exists(savename):
+        if self.skip_existing and exists(savename) and overwrite is False:
             logger.info(f'Order plot already exists: {relpath(savename, self.output_dir)}')
         else:
             flat, fhead = self.data['flat']
