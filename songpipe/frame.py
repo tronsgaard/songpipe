@@ -135,7 +135,22 @@ class Frame:
             obj = self.object
         else:
             obj = None
-        return construct_filename(basename(self.get_header_value('FILE')), object=obj, **kwargs)
+        
+        # Get original filename
+        try:
+            orig_filename = basename(self.get_header_value('FILE'))
+        except KeyError:
+            try:
+                orig_filename = basename(self.get_header_value('ORIGFILE'))
+            except KeyError:
+                import re
+                try:
+                    pattern = r'(s\d_\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}).*(\.fits.*)'
+                    orig_filename = re.findall(pattern, self.filename)[0]
+                except IndexError as e:
+                    logger.error(f'Could not determine original filename: {self.filename}')
+                    raise e
+        return construct_filename(orig_filename, object=obj, **kwargs)
 
 class FrameList:
     """ImageList and SpectrumList inherit shared properties and methods from this class"""
