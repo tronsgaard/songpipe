@@ -29,6 +29,10 @@ def propagate_header_info(images, header=None):
     if len(objname) == 1:
         header = header_insert(header, key='OBJECT', value=objname[0])
 
+    observatory = list(set([im.observatory for im in images]))
+    if len(objname) == 1:
+        header = header_insert(header, key='OBSERVAT', value=observatory[0])
+
     mode = list(set([im.mode for im in images]))
     if len(mode) == 1:
         header = header_insert(header, key='PL_MODE', value=mode[0])
