@@ -91,7 +91,7 @@ class CalibrationSet():
         self.data['flat'] = (flat, flat_header)
         self.steps['flat'] = step_flat
 
-    def trace_orders(self, ymin=-0, ymax=999999, target_nord=None):
+    def trace_orders(self, ymin=-0, ymax=999999, ref_column=None, target_nord=None, overwrite_plot=False):
         """
         Trace orders in single-fiber mode
         ymin,ymax is used for trimming extreme orders, pixels refer to column 2048
@@ -111,15 +111,19 @@ class CalibrationSet():
                 logger.info(f"Traced {len(orders)} orders in image {relpath(step_flat.savefile, self.output_dir)}.")
 
             # Trim extreme orders
-            # ymin and ymax refers to column 2048
-            # Evaluate each order trace polynomial in column 2048 and compare with ymin, ymax
-            ypos = np.hstack([np.polyval(orders[i], [2048]) for i in range(len(orders))])
+            # Evaluate each order trace polynomial in a central column and compare with ymin, ymax
+            if ref_column is None:
+                ref_column = (np.max(column_range) - np.min(column_range)) // 2
+            ypos = np.hstack([np.polyval(orders[i], [ref_column]) for i in range(len(orders))])
+            ymin = ymin or 0
+            ymax = ymax or self.images[0].shape[0]
             ok = (ypos >= ymin) & (ypos <= ymax)
             # Verify that we found the expected number of orders between ymin and ymax
-            try:
-                assert (nord := np.sum(ok) == target_nord)
-            except AssertionError:
-                logger.warning(f'Incorrect number of orders found ({nord}). This may lead to unexpected results.')
+            if target_nord is not None:
+                try:
+                    assert (nord := np.sum(ok) == target_nord)
+                except AssertionError:
+                    logger.warning(f'Incorrect number of orders found ({nord}). This may lead to unexpected results.')
             # Remove orders from (orders,column_range) tuple 
             if np.sum(ok==False) > 0:
                 logger.info(f'Trimming orders: {np.where(ok==False)[0].tolist()}')
@@ -127,10 +131,11 @@ class CalibrationSet():
                 # override order tracing file
                 np.savez(step_orders.savefile, orders=orders, column_range=column_range)
                 logger.info("Updated order tracing file: %s", step_orders.savefile)
+                overwrite_plot = True
 
             self.data['orders'] = (orders, column_range)
             self.steps['orders'] = step_orders
-            self.plot_trace()
+            self.plot_trace(overwrite=overwrite_plot)
             return (orders, column_range)
 
     def plot_trace(self, overwrite=False,**kwargs):
