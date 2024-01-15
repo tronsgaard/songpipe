@@ -284,7 +284,7 @@ class CalibrationSet():
         return exists(self.get_extracted_filename(orig_filename, savedir=savedir, mode=self.mode))
     
     def solve_wavelengths(self, linelist_path, savedir=None, skip_existing=True):
-        """Solve all ThAr spectra i self.wavelength_calibs"""
+        """Solve all ThAr spectra in self.wavelength_calibs"""
         if savedir is None:
             savedir = self.output_dir
 
