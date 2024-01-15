@@ -265,7 +265,7 @@ def log_summary(opts, image_class):
         input('Press ENTER to continue or Ctrl-C to abort...')
 
 
-def load_images(filemask, image_class, reload_cache=False, outdir=dirname(__name__), silent=False):
+def load_images(filemask, image_class, ignore_list=None, reload_cache=False, outdir=dirname(__name__), silent=False):
     """
     Load all FITS headers as Image objects
     Objects are saved to a dill file called .songpipe_cache, saving time if we need to run the pipeline again
@@ -297,7 +297,7 @@ def load_images(filemask, image_class, reload_cache=False, outdir=dirname(__name
     if images is None:
         logger.info('Loading FITS headers from raw images...')
         # The following line loads all *.fits files from the raw directory
-        images = ImageList.from_filemask(filemask, image_class=image_class, silent=silent)
+        images = ImageList.from_filemask(filemask, ignore_list=ignore_list, image_class=image_class, silent=silent)
         logger.info(f'Loaded {len(images)} images')
         try:
             # Save objects for next time
