@@ -53,7 +53,7 @@ def propagate_header_info(images, header=None):
 
     return header
 
-def median_combine(images, nallocate=10, silent=False):
+def median_combine(images, nallocate=1, silent=False):
     """Median combine a list of 2D images"""
 
     # Open all files
