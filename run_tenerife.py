@@ -10,17 +10,18 @@ from songpipe.image import Image, HighLowImage, ImageList, QHYImage
 from songpipe.dark import DarkManager
 
 # SONGpipe settings
-BASEDIR = '/mnt/brunost/song/sstenerife/'
+#BASEDIR = '/mnt/brunost/song/sstenerife/'
+BASEDIR = '/mnt/c/data/SONG/sstenerife/'
 OBSLOG_NAME = '000_list.txt'
-MIN_BIAS_IMAGES = 11  # Minimum number of bias images
-MIN_DARK_IMAGES = 5   # Minimum number of dark images
+MIN_BIAS_IMAGES = 9  # Minimum number of bias images
+MIN_DARK_IMAGES = 2   # Minimum number of dark images
 MIN_DARK_EXPTIME = 10.0  # Ignore if darks are missing for exposures shorter than this (seconds)
-MIN_FLAT_IMAGES = 11  # Minimum number of flat images
-LINELIST_PATH = join(dirname(__file__), 'linelists/s1_2014-08-02T20-02-22.thar_2D.npz')
+MIN_FLAT_IMAGES = 10  # Minimum number of flat images
+LINELIST_PATH = join(dirname(__file__), 'linelists/s1_2024-01-11T16-27-10_SLIT8.linelist.npz')
 
 # Select image class (single channel or high/low gain)
 # TODO: Should this be done automatically, by date or by analyzing the first FITS file?
-IMAGE_CLASS = Image  # Tenerife
+IMAGE_CLASS = QHYImage  # Tenerife
 
 
 def run():
@@ -98,7 +99,7 @@ def run_inner(opts, logger):
 
     # MASTER BIAS AND DARKS
     # Initialize the DarkManager, from which we will request the darks we need
-    dark_manager = DarkManager([], image_class=IMAGE_CLASS, 
+    dark_manager = DarkManager([], image_class=Image, 
                                combine_method='median', savedir=opts.darkdir, 
                                min_dark_images=MIN_DARK_IMAGES, 
                                min_bias_images=MIN_BIAS_IMAGES)
@@ -114,10 +115,10 @@ def run_inner(opts, logger):
         logger.info('Ignoring darks and bias frames from this night')
     else:
         dark_manager.build_master_bias(images, silent=opts.silent)
-        dark_manager.build_all_master_darks(images, silent=opts.silent)
+        #dark_manager.build_all_master_darks(images, silent=opts.silent)
 
     # Check if we have all the needed master darks
-    dark_manager.check_exptimes(images.get_exptimes(), min_exptime=MIN_DARK_EXPTIME)
+    #dark_manager.check_exptimes(images.get_exptimes(), min_exptime=MIN_DARK_EXPTIME)
 
     # Now we can request the master bias and master dark like this:
     master_bias = dark_manager.get_master_bias()
@@ -148,30 +149,29 @@ def run_inner(opts, logger):
             im = im_orig.subtract_bias(master_bias)
             im_orig.clear_data()  # Avoid filling up the memory
 
-            # Get master dark for exptime
-            if im.exptime > MIN_DARK_EXPTIME:
-                master_dark = dark_manager.get_master_dark(im.exptime, im.mjd_mid)
-                
-                # Subtract master dark
-                logger.info(f'Subtracting master dark: {master_dark.filename}')
-                im = im.subtract_dark(master_dark)
+        #    # Get master dark for exptime
+        #    if im.exptime > MIN_DARK_EXPTIME:
+        #        master_dark = dark_manager.get_master_dark(im.exptime, im.mjd_mid)
+        #        
+        #        # Subtract master dark
+        #        logger.info(f'Subtracting master dark: {master_dark.filename}')
+        #        im = im.subtract_dark(master_dark)
 
             # Apply gain
             logger.info('Applying gain and merge high+low')
-            im = im.apply_gain()  # TODO: Move gain values to instrument config
-            merged = im.merge_high_low()
-            im.clear_data()  # Avoid filling up the memory
+            gain_factor = im.get_header_value('GAIN')  # should be 56.0
+            im = im.apply_gain(gain_factor) 
 
             # Orientation
             logger.info('Orienting image')
-            merged = merged.orient(flip_updown=True, rotation=0)  # TODO: Move orientation parameters to instrument config
+            im = im.orient(flip_leftright=True)  # No rotation
 
             # Save image
-            merged.save_fits(out_filename, overwrite=True, dtype='float32')  # FIXME: Maybe change dtype to float64?
-            merged.clear_data()  # Avoid filling up the memory
+            im.save_fits(out_filename, overwrite=True, dtype='float32')  # FIXME: Maybe change dtype to float64?
+            im.clear_data()  # Avoid filling up the memory
 
             # Append to list
-            prep_images.append(merged)
+            prep_images.append(im)
 
 
         #print('----')
@@ -206,6 +206,9 @@ def run_inner(opts, logger):
     config = get_configuration_for_instrument("pyreduce", plot=opts.plot)
     
     # Modify default config
+    config['orders']['min_cluster'] = 100000  # Minimum number of pixels in each cluster
+    config['orders']['border_width'] = 0  # excluded rows top and bottom
+    config['orders']['merge_min_threshold'] = 0.9  # don't merge any orders
     config['norm_flat']['smooth_slitfunction'] = 2 
     config['science']['extraction_width'] = 0.4
     config['wavecal_master']['extraction_width'] = 0.4
@@ -233,12 +236,9 @@ def run_inner(opts, logger):
         logger.info(f'Copying existing calibrations from {src} to {dest}')
         copytree(src, dest, dirs_exist_ok=True)
 
-    # Set up and link calibration modes for Mt. Kent data
+    # Set up and link calibration modes for Tenerife
     calibs = {}
-    calibs['F1'] = CalibrationSet(prep_images, opts.calibdir, config, mask, instrument, "F1")
-    calibs['F2'] = CalibrationSet(prep_images, opts.calibdir, config, mask, instrument, "F2")
-    calibs['F12'] = MultiFiberCalibrationSet(prep_images, opts.calibdir, config, mask, instrument, "F12")
-    calibs['F12'].link_single_fiber_calibs(calibs['F1'], calibs['F2'])
+    calibs['SLIT8'] = CalibrationSet(prep_images, opts.calibdir, config, mask, instrument, "SLIT8")
 
     # Run calibration steps via CalibrationSet objects
     for mode, calibration_set in calibs.items():
@@ -247,12 +247,13 @@ def run_inner(opts, logger):
     for mode, calibration_set in calibs.items():
         # TODO: Move below settings somewhere else
         #ymin, ymax = (156., 3766.)  # 69 orders from 4211 - 7971 Å 
-        calibration_set.trace_orders(ymin=156., ymax=3766., target_nord=69)
+        calibration_set.trace_orders(ymin=120., ymax=None, target_nord=None)  # FIXME TARGET
         calibration_set.log_extraction_widths()
 
     # Measure scattered light from flat
     for mode, calibration_set in calibs.items():
-        calibration_set.measure_scattered_light()
+        #calibration_set.measure_scattered_light()
+        calibration_set.data['scatter'] = None
         calibration_set.measure_curvature()  # Dummy - not useful with fiber
         calibration_set.normalize_flat()
 
@@ -273,7 +274,7 @@ def run_inner(opts, logger):
         # Store list of extracted ThAr spectra in calibration set
         calibration_set.wavelength_calibs += thar_spectra.filter(mode=mode)
         # Solve wavelengths for each extracted spectrum
-        calibration_set.solve_wavelengths(LINELIST_PATH, savedir=opts.thardir, skip_existing=True)
+        calibration_set.solve_wavelengths(LINELIST_PATH, savedir=opts.thardir, skip_existing=False)
 
     # Add fallback ThAr calibs from different nights
     for d in opts.add_thars:
