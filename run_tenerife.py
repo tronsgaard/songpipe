@@ -4,6 +4,7 @@
 import sys
 from os.path import join, exists, relpath, dirname
 from shutil import copytree
+from copy import deepcopy
 
 import songpipe.running
 from songpipe.image import Image, HighLowImage, ImageList, QHYImage
@@ -218,6 +219,9 @@ def run_inner(opts, logger):
     config['wavecal']['degree']         = [ 5, 6 ]
     config['wavecal']['iterations']     = 5
     config['wavecal']['medium']         = 'air'
+
+    config_pinhole = deepcopy(config)
+    config_pinhole['orders']['min_cluster'] = 100000  # Minimum number of pixels in each cluster
     
     if opts.simple_extract:
         config['science']['collapse_function'] = 'sum' 
@@ -239,6 +243,8 @@ def run_inner(opts, logger):
     # Set up and link calibration modes for Tenerife
     calibs = {}
     calibs['SLIT8'] = CalibrationSet(prep_images, opts.calibdir, config, mask, instrument, "SLIT8")
+    calibs['SLIT6'] = CalibrationSet(prep_images, opts.calibdir, config, mask, instrument, "SLIT6")
+    calibs['SLIT2'] = CalibrationSet(prep_images, opts.calibdir, config_pinhole, mask, instrument, "SLIT2")
 
     # Run calibration steps via CalibrationSet objects
     for mode, calibration_set in calibs.items():
@@ -298,23 +304,33 @@ def run_inner(opts, logger):
         files_to_extract = prep_images.filter(image_type='STAR')
 
     for im in files_to_extract:
-        mode = im.mode
-        if im.mode == 'UNKNOWN':
-            mode = 'F12'  # Extract as F12 if mode is unknown (Mt. Kent)
-        calibration_set = calibs[mode]
+        try:
+            calibration_set = calibs[im.mode]
+        except KeyError:
+            logger.warning(f'No calibrations for mode {im.mode}')
+            continue
         calibration_set.extract(im, savedir=opts.stardir)
 
     if opts.extract is None:
         # Extract FlatI2
         if opts.skip_flati2 is not True:
             for im in prep_images.filter(image_type='FLATI2'):
-                calibration_set = calibs[im.mode]
+                try:
+                    calibration_set = calibs[im.mode]
+                except KeyError:
+                    logger.warning(f'No calibrations for mode {im.mode}')
+                    continue
                 calibration_set.extract(im, savedir=opts.flati2dir)
+                
 
         # Extract FP
         if opts.skip_fp is not True:
             for im in prep_images.filter(image_type='FP'):
-                calibration_set = calibs[im.mode]
+                try:
+                    calibration_set = calibs[im.mode]
+                except KeyError:
+                    logger.warning(f'No calibrations for mode {im.mode}')
+                    continue
                 calibration_set.extract(im, savedir=opts.fpdir)
 
     print('------------------------')
