@@ -221,7 +221,7 @@ def run_inner(opts, logger):
     config['wavecal']['medium']         = 'air'
 
     config_pinhole = deepcopy(config)
-    config_pinhole['orders']['min_cluster'] = 100000  # Minimum number of pixels in each cluster
+    config_pinhole['orders']['min_cluster'] = 4000  # Minimum number of pixels in each cluster
     
     if opts.simple_extract:
         config['science']['collapse_function'] = 'sum' 
