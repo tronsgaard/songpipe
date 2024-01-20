@@ -121,7 +121,7 @@ class CalibrationSet():
             # Verify that we found the expected number of orders between ymin and ymax
             if target_nord is not None:
                 try:
-                    assert (nord := np.sum(ok) == target_nord)
+                    assert ((nord := np.sum(ok)) == target_nord)
                 except AssertionError:
                     logger.warning(f'Incorrect number of orders found ({nord}). This may lead to unexpected results.')
             # Remove orders from (orders,column_range) tuple 
