@@ -18,7 +18,7 @@ MIN_BIAS_IMAGES = 9  # Minimum number of bias images
 MIN_DARK_IMAGES = 2   # Minimum number of dark images
 MIN_DARK_EXPTIME = 10.0  # Ignore if darks are missing for exposures shorter than this (seconds)
 MIN_FLAT_IMAGES = 10  # Minimum number of flat images
-LINELIST_PATH = join(dirname(__file__), 'linelists/s1_2024-01-11T16-27-10_SLIT8.linelist.npz')
+LINELIST_PATH = join(dirname(__file__), 'linelists/s1_qhy_1.npz')
 
 # Select image class (single channel or high/low gain)
 # TODO: Should this be done automatically, by date or by analyzing the first FITS file?
