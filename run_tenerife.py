@@ -253,7 +253,7 @@ def run_inner(opts, logger):
     for mode, calibration_set in calibs.items():
         # TODO: Move below settings somewhere else
         #ymin, ymax = (156., 3766.)  # 69 orders from 4211 - 7971 Å 
-        calibration_set.trace_orders(ymin=120., ymax=None, target_nord=None)  # FIXME TARGET
+        calibration_set.trace_orders(ymin=120., ymax=None, target_nord=46)
         calibration_set.log_extraction_widths()
 
     # Measure scattered light from flat
