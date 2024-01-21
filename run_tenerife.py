@@ -280,7 +280,7 @@ def run_inner(opts, logger):
         # Store list of extracted ThAr spectra in calibration set
         calibration_set.wavelength_calibs += thar_spectra.filter(mode=mode)
         # Solve wavelengths for each extracted spectrum
-        calibration_set.solve_wavelengths(LINELIST_PATH, savedir=opts.thardir, skip_existing=False)
+        calibration_set.solve_wavelengths(LINELIST_PATH, savedir=opts.thardir, skip_existing=True)
 
     # Add fallback ThAr calibs from different nights
     for d in opts.add_thars:
