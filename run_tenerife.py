@@ -210,8 +210,13 @@ def run_inner(opts, logger):
     config['orders']['min_cluster'] = 100000  # Minimum number of pixels in each cluster
     config['orders']['border_width'] = 0  # excluded rows top and bottom
     config['orders']['merge_min_threshold'] = 0.9  # don't merge any orders
-    config['norm_flat']['smooth_slitfunction'] = 2 
+    config['norm_flat']['smooth_slitfunction'] = 2
+
     config['science']['extraction_width'] = 0.4
+    config['science']['oversampling']     = 1
+    config['science']['smooth_slitfunction']= 0.1
+    config['science']['smooth_spectrum'] = 0
+
     config['wavecal_master']['extraction_width'] = 0.4
     config['wavecal_master']['collapse_function'] = 'sum'
     config['wavecal']['correlate_cols'] = 512
