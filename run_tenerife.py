@@ -159,8 +159,8 @@ def run_inner(opts, logger):
         #        im = im.subtract_dark(master_dark)
 
             # Apply gain
-            logger.info('Applying gain and merge high+low')
-            gain_factor = im.get_header_value('GAIN')  # should be 56.0
+            logger.info('Applying gain')
+            gain_factor = im.get_header_value(0.336)
             im = im.apply_gain(gain_factor) 
 
             # Orientation
