@@ -305,6 +305,7 @@ class CalibrationSet():
             return
         
         logger.info(f'Solving ThAr wavelengths for mode {self.mode} ({nthar} ThAr spectra)')
+        logger.info(f'Linelist path: {linelist_path}')
 
         # Loop through ThAr spectra
         for thar in thar_spectra:
