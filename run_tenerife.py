@@ -160,7 +160,8 @@ def run_inner(opts, logger):
 
             # Apply gain
             logger.info('Applying gain')
-            gain_factor = im.get_header_value(0.336)
+            #gain_factor = im.get_header_value('GAIN')
+            gain_factor = 0.336
             im = im.apply_gain(gain_factor) 
 
             # Orientation
