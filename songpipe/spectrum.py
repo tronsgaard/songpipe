@@ -35,7 +35,8 @@ class Spectrum(Frame):
     def load_data(self):
         """Load BinTable data as PyReduce echelle object"""
         logger.debug(f'Loading PyReduce echelle object from "{self.filename}"')
-        self._ech = echelle.read(self.filename)
+        self._ech = echelle.read(self.filename, continuum_normalization=False, 
+                                 barycentric_correction=False, radial_velociy_correction=False)
 
     def clear_data(self, keep_thead=False):
         """Clear cached data"""
