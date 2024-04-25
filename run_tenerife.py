@@ -298,6 +298,10 @@ def run_inner(opts, logger):
         for mode, calibration_set in calibs.items():
             calibration_set.wavelength_calibs += additional_thars.filter(mode=mode)
 
+    # Extract summed flats
+    for mode, calibration_set in calibs.items():
+        calibration_set.extract_flat()
+
     # Exit if flag --calib-only is set
     if opts.calib_only is True:
         sys.exit()

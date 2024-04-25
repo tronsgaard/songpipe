@@ -13,6 +13,7 @@ from pyreduce.wavelength_calibration import LineList
 
 from .plotting import plot_order_trace
 from .misc import construct_filename, header_insert
+from .image import Image
 from .spectrum import Spectrum, SpectrumList
 from . import __version__
 
@@ -225,6 +226,15 @@ class CalibrationSet():
             writeto(filename=fname, data=norm, overwrite=True)
         self.data['norm_flat'] = (norm, blaze)
         self.steps['norm_flat'] = step_normflat
+
+    def extract_flat(self):
+        """Extract the summed flat as a spectrum"""
+        flat, flat_header = self.data['flat']
+        step_flat = self.steps['flat']
+        filename = step_flat.savefile
+        flat_image = Image(header=flat_header, data=flat, filename=filename)
+        logger.info(f'Extracting summed flat ({self.mode})')
+        return self.extract(flat_image, savedir=self.output_dir)
 
     def extract(self, image, savedir=None, skip_existing=True, wave=None):
         """
