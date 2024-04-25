@@ -285,7 +285,7 @@ class CalibrationSet():
         orig_filename = basename(orig_filename)
         orig_filename, _ = splitext(orig_filename)
         orig_filename = orig_filename.replace('_prep', '')
-        new_filename = construct_filename(orig_filename, extracted=True, mode=mode)
+        new_filename = construct_filename(orig_filename, extracted=True, mode=mode, ext='.fits')
         if savedir is None:
             savedir = self.output_dir
         return join(savedir, new_filename)
