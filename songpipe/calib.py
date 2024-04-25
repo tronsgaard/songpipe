@@ -249,6 +249,8 @@ class CalibrationSet():
         head = header_insert(head, 'PL_MODE', self.mode, 'Extracted mode (e.g. fiber)')
         # Add songpipe version
         head = header_insert(head, 'PL_VERS', __version__, 'SONGPIPE version')
+        # Fetch blaze function
+        _, cont = self.data['norm_flat']  # (norm, blaze)
         # Pick a wavelength calibration to assign
         wave = None
         if image.type != 'THAR':
@@ -271,7 +273,7 @@ class CalibrationSet():
         # Save to file
         logger.info(f'Saving spectrum to file: {nameout}')
         makedirs(dirname(nameout), exist_ok=True)
-        echelle.save(nameout, head, spec=spec, sig=sigma, wave=wave, columns=column_range)
+        echelle.save(nameout, head, spec=spec, sig=sigma, wave=wave, cont=cont, columns=column_range)
         # Return as Spectrum object
         return [Spectrum(filename=nameout)]
     
