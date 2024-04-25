@@ -94,8 +94,8 @@ class CalibrationSet():
 
     def trace_orders(self, ymin=-0, ymax=999999, ref_column=None, target_nord=None, overwrite_plot=False):
         """
-        Trace orders in single-fiber mode
-        ymin,ymax is used for trimming extreme orders, pixels refer to column 2048
+        Trace orders in single-aperture mode
+        ymin,ymax is used for trimming extreme orders, pixels refer to central column (or ref_column)
         target_nord is the expected number of orders
         """
         try:
@@ -246,7 +246,7 @@ class CalibrationSet():
         orig_filename = basename(image.filename)
         nameout = self.get_extracted_filename(orig_filename, savedir=savedir, mode=self.mode)
         # Add mode information to header
-        head = header_insert(head, 'PL_MODE', self.mode, 'Extracted mode (e.g. fiber)')
+        head = header_insert(head, 'PL_MODE', self.mode, 'Extracted mode (fiber/slit)')
         # Add songpipe version
         head = header_insert(head, 'PL_VERS', __version__, 'SONGPIPE version')
         # Fetch blaze function
