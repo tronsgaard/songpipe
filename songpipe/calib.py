@@ -236,7 +236,7 @@ class CalibrationSet():
         logger.info(f'Extracting summed flat ({self.mode})')
         return self.extract(flat_image, savedir=self.output_dir)
 
-    def extract(self, image, savedir=None, skip_existing=True, wave=None):
+    def extract(self, image, savedir=None, skip_existing=True):
         """
         Extract the spectrum and return as <Spectrum> object. 
         If skip_existing=True, load existing spectrum and return as <Spectrum> object.
