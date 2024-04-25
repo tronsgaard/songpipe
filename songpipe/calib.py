@@ -214,6 +214,15 @@ class CalibrationSet():
         else:
             logger.info(f'Normalizing {self.mode} flat field...')
             norm, blaze = step_normflat.run(self.data['flat'], self.data['orders'], self.data['scatter'], self.data['curvature'])
+        # Save normflat as fits
+        fname, _ = splitext(step_normflat.savefile)
+        fname += '.fits'
+        if exists(fname):
+            logger.info('Normflat already written to FITS file. Skipping..')
+        else:
+            logger.info(f'Writing normflat to FITS file: {fname}')
+            from astropy.io.fits import writeto
+            writeto(filename=fname, data=norm, overwrite=True)
         self.data['norm_flat'] = (norm, blaze)
         self.steps['norm_flat'] = step_normflat
 
