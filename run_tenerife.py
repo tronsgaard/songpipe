@@ -7,7 +7,7 @@ from shutil import copytree
 from copy import deepcopy
 
 import songpipe.running
-from songpipe.image import Image, HighLowImage, ImageList, QHYImage
+from songpipe.image import Image, ImageList, QHYImage
 from songpipe.dark import DarkManager
 
 # SONGpipe settings
