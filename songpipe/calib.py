@@ -14,6 +14,7 @@ from pyreduce.wavelength_calibration import LineList
 from .plotting import plot_order_trace
 from .misc import construct_filename, header_insert
 from .spectrum import Spectrum, SpectrumList
+from . import __version__
 
 from logging import getLogger
 logger = getLogger(__name__)
@@ -246,6 +247,8 @@ class CalibrationSet():
         nameout = self.get_extracted_filename(orig_filename, savedir=savedir, mode=self.mode)
         # Add mode information to header
         head = header_insert(head, 'PL_MODE', self.mode, 'Extracted mode (e.g. fiber)')
+        # Add songpipe version
+        head = header_insert(head, 'PL_VERS', __version__, 'SONGPIPE version')
         # Pick a wavelength calibration to assign
         wave = None
         if image.type != 'THAR':
