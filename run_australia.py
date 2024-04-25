@@ -19,10 +19,7 @@ MIN_FLAT_IMAGES = 11  # Minimum number of flat images
 LINELIST_PATH = join(dirname(__file__), 'linelists/test_thar_fib2_2D.npz')
 
 # Select image class (single channel or high/low gain)
-# TODO: Should this be done automatically, by date or by analyzing the first FITS file?
 IMAGE_CLASS = HighLowImage  # For Mt. Kent
-# IMAGE_CLASS = Image  # For Tenerife (Not fully implemented)
-
 
 def run():
     """This function is called when running this file from command line"""
@@ -116,7 +113,8 @@ def run_inner(opts, logger):
     logger.info('Preparing images...')
     prep_images = []
     # Loop over all images except bias and darks (and except FLATI2 and FP if set)
-    loop_images = images.filter(image_type_exclude=('BIAS', 'DARK'))
+    loop_images = images.filter(image_type=('STAR', 'FLAT', 'THAR', 'FP', 'FLATI2'),
+                                mode_exclude='SLIT')
     if opts.skip_flati2 is True:
         loop_images = images.filter(image_type_exclude='FLATI2')
     if opts.skip_fp is True:
@@ -206,7 +204,7 @@ def run_inner(opts, logger):
     
     if opts.simple_extract:
         config['science']['collapse_function'] = 'sum' 
-        config['science']['extraction_method'] = 'arc'  # SIMPLE EXTRACTION TO SPEED THINGS UP
+        config['science']['extraction_method'] = 'arc'
 
     # Dump config to json file
     import json
@@ -234,13 +232,13 @@ def run_inner(opts, logger):
 
     for mode, calibration_set in calibs.items():
         # TODO: Move below settings somewhere else
-        #ymin, ymax = (156., 3766.)  # 69 orders from 4211 - 7971 Å 
         calibration_set.trace_orders(ymin=156., ymax=3766., target_nord=69)
         calibration_set.log_extraction_widths()
 
     # Measure scattered light from flat
     for mode, calibration_set in calibs.items():
-        calibration_set.measure_scattered_light()
+        #calibration_set.measure_scattered_light()
+        calibration_set.data['scatter'] = None  # FIXME: Implement scattered light step
         calibration_set.measure_curvature()  # Dummy - not useful with fiber
         calibration_set.normalize_flat()
 
@@ -290,33 +288,41 @@ def run_inner(opts, logger):
 
     for im in files_to_extract:
         mode = im.mode
-        if im.mode == 'UNKNOWN':
+        if mode == 'UNKNOWN':
             mode = 'F12'  # Extract as F12 if mode is unknown (Mt. Kent)
-        calibration_set = calibs[mode]
+        try:
+            calibration_set = calibs[im.mode]
+        except KeyError:
+            logger.warning(f'No calibrations for mode {im.mode}')
+            continue
         calibration_set.extract(im, savedir=opts.stardir)
 
     if opts.extract is None:
         # Extract FlatI2
         if opts.skip_flati2 is not True:
             for im in prep_images.filter(image_type='FLATI2'):
-                calibration_set = calibs[im.mode]
+                try:
+                    calibration_set = calibs[im.mode]
+                except KeyError:
+                    logger.warning(f'No calibrations for mode {im.mode}')
+                    continue
                 calibration_set.extract(im, savedir=opts.flati2dir)
 
         # Extract FP
         if opts.skip_fp is not True:
             for im in prep_images.filter(image_type='FP'):
-                calibration_set = calibs[im.mode]
+                try:
+                    calibration_set = calibs[im.mode]
+                except KeyError:
+                    logger.warning(f'No calibrations for mode {im.mode}')
+                    continue
                 calibration_set.extract(im, savedir=opts.fpdir)
 
     print('------------------------')
 
-    
-    
     # Freqcomb
     # Continuum
     # Finalize
-
-    # Output image with spectrum, blaze, wavelength (placeholder)
 
     logger.info('Done!')
 
