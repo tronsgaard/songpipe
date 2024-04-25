@@ -284,9 +284,13 @@ class CalibrationSet():
                     logger.warning(f'Closest ThAr spectrum has no wavelength solution: {relpath(thar.filename, self.output_dir)}')
                 else:
                     logger.info(f'Assigned wavelength solution from {relpath(thar.filename, self.output_dir)}')
-                    # Add source of wavelength solution to header
-                    head = header_insert(head, 'PL_WLORG', basename(thar.filename), 'Origin of wavelenth solution')
-                    head = header_insert(head, 'PL_WLMJD', thar.mjd_mid, 'MJD_MID of wavelength exposure')
+                    # Add info about wavelength solution to header
+                    head = header_insert(head, 'W_FILENM', basename(thar.filename), 'Origin of wavelenth solution')
+                    head = header_insert(head, 'W_MJDMID', thar.mjd_mid, 'MJD_MID of wavelength calibration')
+                    head = header_insert(head, 'W_CREATS', thar.header.get('W_CREATS', 'N/A'), 'Timestamp of wavelength solution')
+                    head = header_insert(head, 'W_NTHAR', thar.header.get('W_NTHAR'), 'Number of ThAr lines in calibration')
+                    head = header_insert(head, 'W_RMSALL', thar.header.get('W_RMSALL'), 'RMS of wavelength solution (m/s)')
+                    head = header_insert(head, 'W_MADALL', thar.header.get('W_MADALL'), 'MAD of wavelength solution (m/s)')
             except (IndexError):
                 logger.warning(f'No wavelength solution could be assigned')
         # Save to file
