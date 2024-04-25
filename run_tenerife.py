@@ -346,13 +346,9 @@ def run_inner(opts, logger):
 
     print('------------------------')
 
-    
-    
     # Freqcomb
     # Continuum
     # Finalize
-
-    # Output image with spectrum, blaze, wavelength (placeholder)
 
     logger.info('Done!')
 
