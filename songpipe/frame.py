@@ -2,7 +2,7 @@ from os.path import basename
 import numpy as np
 
 from . import config
-from .misc import construct_filename, apply_limit
+from .misc import construct_filename, apply_limit, header_insert
 
 import logging
 logger = logging.getLogger(__name__)
@@ -29,6 +29,10 @@ class Frame:
                 return self.parent.get_header_value(key)
             else:
                 raise
+
+    def header_insert(self, key, value=None, comment=''):
+        """Insert or set FITS header keyword"""
+        self._header = header_insert(self._header, key, value, comment)
 
     @property
     def header(self):
