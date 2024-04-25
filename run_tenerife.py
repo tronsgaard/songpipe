@@ -21,7 +21,6 @@ MIN_FLAT_IMAGES = 10  # Minimum number of flat images
 LINELIST_PATH = join(dirname(__file__), 'linelists/s1_qhy_1.npz')
 
 # Select image class (single channel or high/low gain)
-# TODO: Should this be done automatically, by date or by analyzing the first FITS file?
 IMAGE_CLASS = QHYImage  # Tenerife
 
 
@@ -126,7 +125,7 @@ def run_inner(opts, logger):
     # master_dark = dark_manager.get_master_dark(60)
 
     # PREPARE IMAGES
-    # Prepare for extraction by subtracting master bias and dark, then merge high-low gain channels
+    # Prepare for extraction by subtracting master bias and dark
     logger.info('------------------------')
     logger.info('Preparing images...')
     prep_images = []
@@ -193,7 +192,7 @@ def run_inner(opts, logger):
     import pyreduce
     from pyreduce.configuration import get_configuration_for_instrument
     from pyreduce.instruments.common import create_custom_instrument
-    from songpipe.calib import CalibrationSet, MultiFiberCalibrationSet  # Modified version
+    from songpipe.calib import CalibrationSet
     from songpipe.spectrum import SpectrumList
 
     log_file = join(opts.logdir, 'songpipe.log')
@@ -202,6 +201,8 @@ def run_inner(opts, logger):
 
     # Create custom instrument
     instrument = create_custom_instrument("SONG-Tenerife", mask_file=None, wavecal_file=None)
+    instrument.info['e_gain'] = GAIN_FACTOR
+    instrument.info['e_readno'] = READNOISE
     mask = np.zeros((master_bias.shape))  # TODO: Load an actual bad pixel mask
 
     # Load default config
@@ -231,7 +232,7 @@ def run_inner(opts, logger):
     
     if opts.simple_extract:
         config['science']['collapse_function'] = 'sum' 
-        config['science']['extraction_method'] = 'arc'  # SIMPLE EXTRACTION TO SPEED THINGS UP
+        config['science']['extraction_method'] = 'arc'
 
     # Dump config to json file
     import json
@@ -250,6 +251,7 @@ def run_inner(opts, logger):
     calibs = {}
     calibs['SLIT8'] = CalibrationSet(prep_images, opts.calibdir, config, mask, instrument, "SLIT8")
     calibs['SLIT6'] = CalibrationSet(prep_images, opts.calibdir, config, mask, instrument, "SLIT6")
+    calibs['SLIT5'] = CalibrationSet(prep_images, opts.calibdir, config, mask, instrument, "SLIT5")
     calibs['SLIT2'] = CalibrationSet(prep_images, opts.calibdir, config_pinhole, mask, instrument, "SLIT2")
 
     # Run calibration steps via CalibrationSet objects
@@ -258,15 +260,14 @@ def run_inner(opts, logger):
 
     for mode, calibration_set in calibs.items():
         # TODO: Move below settings somewhere else
-        #ymin, ymax = (156., 3766.)  # 69 orders from 4211 - 7971 Å 
         calibration_set.trace_orders(ymin=120., ymax=None, target_nord=46)
         calibration_set.log_extraction_widths()
 
     # Measure scattered light from flat
     for mode, calibration_set in calibs.items():
         #calibration_set.measure_scattered_light()
-        calibration_set.data['scatter'] = None
-        calibration_set.measure_curvature()  # Dummy - not useful with fiber
+        calibration_set.data['scatter'] = None  # FIXME: Implement scattered light step
+        calibration_set.measure_curvature()  # FIXME: Implement curvature step
         calibration_set.normalize_flat()
 
     # Extract and calibrate all ThAr spectra
