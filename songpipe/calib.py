@@ -327,14 +327,41 @@ class CalibrationSet():
                 wavecal_master = (thar.spec, thar.header)
                 linelist = LineList.load(linelist_path)
                 wave, coef, linelist = step_wavecal.run(wavecal_master, linelist)
+
+                # Add wavelength solution to Spectrum object 
+                thar.wave = wave
+                # Add timestamp to header
+                from astropy.time import Time
+                now = Time.now().isot  # Current UTC timestamp
+                thar.header_insert('W_CREATS', now, 'Timestamp of wavelength solution')
+                # Add number of lines to header
+                lines = linelist.data[linelist['flag'] == True]  # Select lines that were used
+                thar.header_insert('W_NTHAR', len(lines), 'Number of ThAr lines used')
+                # Calculate RMS and MAD of wavelength solution and add to header
+                residuals = lines['wlc'] - lines['wll']  # WLL = listed wavelength // WLC = fitted wavelength
+                vresiduals = residuals/lines['wll'] * 299792458.
+                rms = np.sqrt(np.mean(vresiduals**2))
+                mad = np.median(np.abs(vresiduals))
+                logger.info(f'Root Mean Square (RMS) of wavelength solution: {rms:.2f} m/s')
+                logger.info(f'Median Absolute Deviation (MAD) of wavelength solution: {mad:.2f} m/s')
+                thar.header_insert('W_RMSALL', np.round(rms, 2), 'RMS of wavelength solution (m/s)')
+                thar.header_insert('W_MADALL', np.round(mad, 2), 'MAD of wavelength solution (m/s)')
+                # Calculate MAD and count number of lines in each order
+                calc_mad = lambda x: round(np.median(np.abs(x)), 2)
+                for i in range(thar.nord):
+                    mask = lines['order']==i
+                    vres = vresiduals[mask]
+                    print(f'Order {i}: {len(lines[mask])} lines, MAD={calc_mad(vres)} m/s')
+                    thar.header_insert(f'W_NTH{i:03d}', len(lines[mask]), f'Order {i} number of ThAr lines')
+                    thar.header_insert(f'W_MAD{i:03d}', np.round(calc_mad(vresiduals[mask]), 2), f'Order {i} MAD of wavelength sol. (m/s)')
+                # Save to ech/FITS file
+                thar.save()
+                
                 # Save the coefficients and linelist in npz file
                 # (PyReduce also already saved an npz file with a generic name, 
                 # which gets overwritten in each step of this loop)
                 savefile = join(savedir, thar.construct_filename(ext='.thar.npz', mode=self.mode, object=None))
                 np.savez(savefile, wave=wave, coef=coef, linelist=linelist)
-                # Add to Spectrum object and save to ech/FITS file
-                thar.wave = wave
-                thar.save()
 
 
 class MultiFiberCalibrationSet(CalibrationSet):
