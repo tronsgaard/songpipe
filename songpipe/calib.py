@@ -80,8 +80,8 @@ class CalibrationSet():
         """Combine flats"""
         step_flat = Flat(*self.step_args, **self.config['flat'])
         if exists(step_flat.savefile):
+            logger.info(f"Loading existing master flat ({self.mode}) from {relpath(step_flat.savefile, self.output_dir)}.")
             flat, flat_header = step_flat.load(self.mask)
-            logger.info(f"Loaded existing master flat ({self.mode}) from {relpath(step_flat.savefile, self.output_dir)}.")
         else:
             logger.info(f'Assembling master flat ({self.mode})...')
             flats = self.images.filter(image_type='FLAT', mode=self.mode)
@@ -193,8 +193,8 @@ class CalibrationSet():
         logger.info(f'Measuring scattered light in master flat...')
         step_scatter = BackgroundScatter(*self.step_args, **self.config['scatter'])
         if exists(step_scatter.savefile):
+            logger.info(f'Loading existing scattered light fit from {relpath(step_scatter.savefile, self.output_dir)}')
             scatter = step_scatter.load()
-            logger.info(f'Loaded existing scattered light fit from {relpath(step_scatter.savefile, self.output_dir)}')
         else:
             logger.info('Measuring scattered light')
             scatter = step_scatter.run([self.steps['flat'].savefile], self.mask, None, self.data['orders'])
@@ -209,8 +209,8 @@ class CalibrationSet():
         # Norm flat and blaze
         step_normflat = NormalizeFlatField(*self.step_args, **self.config['norm_flat'])
         if exists(step_normflat.savefile):
+            logger.info(f'Loading existing normflat ({self.mode}) from {relpath(step_normflat.savefile, self.output_dir)}')
             norm, blaze = step_normflat.load()
-            logger.info(f'Loaded existing normflat ({self.mode}) from {relpath(step_normflat.savefile, self.output_dir)}')
         else:
             logger.info(f'Normalizing {self.mode} flat field...')
             norm, blaze = step_normflat.run(self.data['flat'], self.data['orders'], self.data['scatter'], self.data['curvature'])
