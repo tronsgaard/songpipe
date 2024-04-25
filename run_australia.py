@@ -144,8 +144,9 @@ def run_inner(opts, logger):
                 im = im.subtract_dark(master_dark)
 
             # Apply gain
-            logger.info('Applying gain and merge high+low')
-            im = im.apply_gain()  # TODO: Move gain values to instrument config
+            logger.info('Applying gain and merging high+low')
+            # electrons/ADU for HIGHGAIN and LOWGAIN image, respectively: [0.78, 15.64]
+            im = im.apply_gain(gain_high=0.78, gain_low=15.64)  # electrons/ADU
             merged = im.merge_high_low()
             im.clear_data()  # Avoid filling up the memory
 

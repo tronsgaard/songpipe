@@ -449,8 +449,7 @@ class HighLowImage(Image):
         if inplace is False:
             return HighLowImage(high_gain_image=high_gain_image, low_gain_image=low_gain_image)
 
-    def apply_gain(self, gain_high=0.78, gain_low=15.64, inplace=False):
-        # electrons/ADU for HIGHGAIN and LOWGAIN image, respectively: [0.78, 15.64]
+    def apply_gain(self, gain_high=1.0, gain_low=1.0, inplace=False):
         assert self.bias_subtracted
         # assert self.dark_subtracted
         assert self.gain_applied is False
