@@ -195,8 +195,7 @@ def run_inner(opts, logger):
     from songpipe.calib import CalibrationSet
     from songpipe.spectrum import SpectrumList
 
-    log_file = join(opts.logdir, 'songpipe.log')
-    logger = songpipe.running.setup_logger(log_file, silent=opts.silent)  # Do this again to remove the pyreduce logger that loads on import
+    logger.manager.loggerDict['pyreduce'].handlers.clear()  # Pyreduce sets its own logging handler, resulting in duplicate output if we don't clear it
     logger.info(f'Setting up PyReduce (version {pyreduce.__version__})')
 
     # Create custom instrument
