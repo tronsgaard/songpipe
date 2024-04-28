@@ -10,12 +10,13 @@ from pyreduce.reduce import ScienceExtraction, Flat, OrderTracing, BackgroundSca
     NormalizeFlatField, WavelengthCalibrationMaster, WavelengthCalibrationFinalize
 from pyreduce.extract import fix_parameters
 from pyreduce.wavelength_calibration import LineList
+from pyreduce import __version__ as pyreduce_version
 
 from .plotting import plot_order_trace
 from .misc import construct_filename, header_insert
 from .image import Image
 from .spectrum import Spectrum, SpectrumList
-from . import __version__
+from . import __version__ as songpipe_version
 
 from logging import getLogger
 logger = getLogger(__name__)
@@ -266,8 +267,9 @@ class CalibrationSet():
         nameout = self.get_extracted_filename(orig_filename, savedir=savedir, mode=self.mode)
         # Add mode information to header
         head = header_insert(head, 'PL_MODE', self.mode, 'Extracted mode (fiber/slit)')
-        # Add songpipe version
-        head = header_insert(head, 'PL_VERS', __version__, 'SONGPIPE version')
+        # Add songpipe and PyReduce version
+        head = header_insert(head, 'PL_VERS', songpipe_version, 'SONGPIPE version')
+        head = header_insert(head, 'E_VERS', pyreduce_version, 'PyReduce version')
         # Fetch blaze function
         _, cont = self.data['norm_flat']  # (norm, blaze)
         # Pick a wavelength calibration to assign
