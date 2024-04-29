@@ -19,6 +19,8 @@ MIN_DARK_IMAGES = 2   # Minimum number of dark images
 MIN_DARK_EXPTIME = 10.0  # Ignore if darks are missing for exposures shorter than this (seconds)
 MIN_FLAT_IMAGES = 10  # Minimum number of flat images
 LINELIST_PATH = join(dirname(__file__), 'linelists/s1_qhy_1.npz')
+GAIN_FACTOR = 0.096  # e-/ADU
+READNOISE = 2.0  # e-
 
 # Select image class (single channel or high/low gain)
 IMAGE_CLASS = QHYImage  # Tenerife
@@ -178,17 +180,21 @@ def run_inner(opts, logger):
     ############################
     import pyreduce
     from pyreduce.configuration import get_configuration_for_instrument
-    from pyreduce.instruments.common import create_custom_instrument
+    #from pyreduce.instruments.common import create_custom_instrument
     from songpipe.calib import CalibrationSet
     from songpipe.spectrum import SpectrumList
+    from songpipe.instruments import SONGInstrument
 
     logger.manager.loggerDict['pyreduce'].handlers.clear()  # Pyreduce sets its own logging handler, resulting in duplicate output if we don't clear it
     logger.info(f'Setting up PyReduce (version {pyreduce.__version__})')
 
     # Create custom instrument
-    instrument = create_custom_instrument("SONG-Tenerife", mask_file=None, wavecal_file=None)
-    instrument.info['e_gain'] = GAIN_FACTOR
-    instrument.info['e_readno'] = READNOISE
+    #instrument = create_custom_instrument("SONG-Tenerife", mask_file=None, wavecal_file=None)
+    instrument = SONGInstrument('SONG-Tenerife', modes=['SLIT2', 'SLIT5', 'SLIT6', 'SLIT8'])
+    instrument.info['gain'] = GAIN_FACTOR
+    instrument.info['readno'] = READNOISE
+    instrument.info['dark'] = 0
+    
     mask = np.zeros((master_bias.shape))  # TODO: Load an actual bad pixel mask
 
     # Load default config

@@ -21,6 +21,12 @@ LINELIST_PATH = join(dirname(__file__), 'linelists/test_thar_fib2_2D.npz')
 # Select image class (single channel or high/low gain)
 IMAGE_CLASS = HighLowImage  # For Mt. Kent
 
+# Gain factors and read noise
+GAIN_HIGH = 0.78  # e-/ADU (high gain, should be lower number, as high refers to inverse quantity [ADU/e-])
+GAIN_LOW = 15.64  # e-/ADU
+READNOISE = 2.3  # FIXME: Is this right?
+DARK_CURRENT = 0  # Estimate, for uncertainties
+
 def run():
     """This function is called when running this file from command line"""
 
@@ -177,16 +183,21 @@ def run_inner(opts, logger):
     ############################
     import pyreduce
     from pyreduce.configuration import get_configuration_for_instrument
-    from pyreduce.instruments.common import create_custom_instrument
     from songpipe.calib import CalibrationSet, MultiFiberCalibrationSet  # Modified version
     from songpipe.spectrum import SpectrumList
+    from songpipe.instruments import SONGInstrument
 
     logger.manager.loggerDict['pyreduce'].handlers.clear()  # Pyreduce sets its own logging handler, resulting in duplicate output if we don't clear it
     logger.info(f'Setting up PyReduce (version {pyreduce.__version__})')
 
     # Create custom instrument
-    instrument = create_custom_instrument("SONG-Australia", mask_file=None, wavecal_file=None)
-    mask = np.zeros((4096, 4096))  # TODO: Load an actual bad pixel mask
+    #instrument = create_custom_instrument("SONG-Australia")
+    instrument = SONGInstrument('SONG-Australia', modes=['F1', 'F2', 'F12'])
+    instrument.info['gain'] = GAIN_HIGH
+    instrument.info['readno'] = READNOISE
+    instrument.info['dark'] = DARK_CURRENT
+
+    mask = np.zeros((master_bias.shape))  # TODO: Load an actual bad pixel mask
 
     # Load default config
     config = get_configuration_for_instrument("pyreduce", plot=opts.plot)
