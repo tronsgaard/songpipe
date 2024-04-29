@@ -6,16 +6,16 @@ from os.path import join, exists, relpath, dirname
 from shutil import copytree
 
 import songpipe.running
-from songpipe.image import Image, HighLowImage, ImageList
+from songpipe.image import Image, ImageList, HighLowImage
 from songpipe.dark import DarkManager
 
 # SONGpipe settings
 BASEDIR = '/mnt/c/data/SONG/ssmtkent/'
 OBSLOG_NAME = '000_list.txt'
-MIN_BIAS_IMAGES = 11  # Minimum number of bias images
-MIN_DARK_IMAGES = 5   # Minimum number of dark images
+MIN_BIAS_IMAGES = 9  # Minimum number of bias images
+MIN_DARK_IMAGES = 2   # Minimum number of dark images
 MIN_DARK_EXPTIME = 10.0  # Ignore if darks are missing for exposures shorter than this (seconds)
-MIN_FLAT_IMAGES = 11  # Minimum number of flat images
+MIN_FLAT_IMAGES = 10  # Minimum number of flat images
 LINELIST_PATH = join(dirname(__file__), 'linelists/test_thar_fib2_2D.npz')
 
 # Select image class (single channel or high/low gain)
@@ -120,7 +120,7 @@ def run_inner(opts, logger):
     logger.info('Preparing images...')
     prep_images = []
     # Loop over all images except bias and darks (and except FLATI2 and FP if set)
-    loop_images = images.filter(image_type=('STAR', 'FLAT', 'THAR', 'FP', 'FLATI2'),
+    loop_images = images.filter(image_type_exclude=('BIAS', 'DARK'), 
                                 mode_exclude='SLIT')
     if opts.skip_flati2 is True:
         loop_images = images.filter(image_type_exclude='FLATI2')
@@ -157,7 +157,7 @@ def run_inner(opts, logger):
 
             # Orientation
             logger.info('Orienting image')
-            merged = merged.orient(flip_updown=True, rotation=0)  # TODO: Move orientation parameters to instrument config
+            merged = merged.orient(flip_updown=True)
 
             # Save image
             merged.save_fits(out_filename, overwrite=True, dtype='float32')  # FIXME: Maybe change dtype to float64?
