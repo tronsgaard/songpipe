@@ -310,3 +310,18 @@ def load_images(filemask, image_class, ignore_list=None, reload_cache=False, out
             logger.warning('Could not save cache. Continuing...')
 
     return images
+
+
+def read_ignore_list(filepath):
+    """Load ignore list"""
+    ignore_list = []
+    try:
+        with open(filepath) as h:
+            for line in h:
+                try:
+                    item = line.split(' ')[0]
+                    ignore_list.append(item)
+                except:
+                    pass
+    except FileNotFoundError:
+        logger.info(f'Ignore list not found: {filepath}')
