@@ -386,7 +386,7 @@ class CalibrationSet():
                     vres = vresiduals[mask]
                     print(f'Order {i}: {len(lines[mask])} lines, MAD={calc_mad(vres)} m/s')
                     thar.header_insert(f'W_NTH{i:03d}', nansafe(len(lines[mask])), f'Order {i} number of ThAr lines')
-                    thar.header_insert(f'W_MAD{i:03d}', nansafe(np.round(calc_mad(vresiduals[mask])), 2), f'Order {i} MAD of wavelength sol. (m/s)')
+                    thar.header_insert(f'W_MAD{i:03d}', nansafe(np.round(calc_mad(vresiduals[mask]), 2)), f'Order {i} MAD of wavelength sol. (m/s)')
                 # Save to ech/FITS file
                 thar.save()
                 
