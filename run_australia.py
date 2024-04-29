@@ -303,7 +303,7 @@ def run_inner(opts, logger):
         if mode == 'UNKNOWN':
             mode = 'F12'  # Extract as F12 if mode is unknown (Mt. Kent)
         try:
-            calibration_set = calibs[im.mode]
+            calibration_set = calibs[mode]
         except KeyError:
             logger.warning(f'No calibrations for mode {im.mode}')
             continue
