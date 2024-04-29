@@ -140,7 +140,7 @@ def run_inner(opts, logger):
         # Define where this prepared image should be saved/loaded from
         out_filename = join(opts.prepdir, im_orig.construct_filename(suffix='prep'))
         if exists(out_filename):
-            logger.debug(f'File already exists - loading from {relpath(out_filename, opts.outdir)}')
+            logger.info(f'File already exists - loading from {relpath(out_filename, opts.outdir)}')
             im = Image(filename=out_filename)
             prep_images.append(im)
         else:
