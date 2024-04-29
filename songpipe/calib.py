@@ -24,7 +24,8 @@ logger = getLogger(__name__)
 class CalibrationSet():
     """This class represents a calibration set for a single-fiber setup (e.g. F1)"""
     
-    def __init__(self, images, output_dir, config, mask, instrument, mode, order_range=None, skip_existing=True):
+    def __init__(self, images, output_dir, config, mask, instrument, mode, 
+                 order_range=None, skip_existing=True, mode_in_extracted_filenames=True):
         """Prepare to reduce calibrations for the selected mode using the selected files
 
         Parameters
@@ -41,6 +42,8 @@ class CalibrationSet():
             numeric reduction specific settings, like pixel threshold, which may change between runs
         skip_existing : bool
             Whether to skip reductions with existing output
+        mode_in_extracted_filenames : bool
+            Include mode (slit or fiber) in extracted filenames
         """ 
         self.images = images
         self.output_dir = output_dir
@@ -50,6 +53,7 @@ class CalibrationSet():
         self.mode = mode
         self.order_range = order_range
         self.skip_existing = skip_existing
+        self.mode_in_extracted_filenames = mode_in_extracted_filenames
         self.bias = None  # TODO: Change this?
 
         self.data = {}
@@ -317,6 +321,8 @@ class CalibrationSet():
         orig_filename = basename(orig_filename)
         orig_filename, _ = splitext(orig_filename)
         orig_filename = orig_filename.replace('_prep', '')
+        if self.mode_in_extracted_filenames is False:
+            mode = None
         new_filename = construct_filename(orig_filename, extracted=True, mode=mode, ext='.fits')
         if savedir is None:
             savedir = self.output_dir

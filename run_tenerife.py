@@ -248,10 +248,10 @@ def run_inner(opts, logger):
 
     # Set up and link calibration modes for Tenerife
     calibs = {}
-    calibs['SLIT8'] = CalibrationSet(prep_images, opts.calibdir, config, mask, instrument, "SLIT8")
-    calibs['SLIT6'] = CalibrationSet(prep_images, opts.calibdir, config, mask, instrument, "SLIT6")
-    calibs['SLIT5'] = CalibrationSet(prep_images, opts.calibdir, config, mask, instrument, "SLIT5")
-    calibs['SLIT2'] = CalibrationSet(prep_images, opts.calibdir, config_pinhole, mask, instrument, "SLIT2")
+    calibs['SLIT8'] = CalibrationSet(prep_images, opts.calibdir, config, mask, instrument, "SLIT8", mode_in_extracted_filenames=False)
+    calibs['SLIT6'] = CalibrationSet(prep_images, opts.calibdir, config, mask, instrument, "SLIT6", mode_in_extracted_filenames=False)
+    calibs['SLIT5'] = CalibrationSet(prep_images, opts.calibdir, config, mask, instrument, "SLIT5", mode_in_extracted_filenames=False)
+    calibs['SLIT2'] = CalibrationSet(prep_images, opts.calibdir, config_pinhole, mask, instrument, "SLIT2", mode_in_extracted_filenames=False)
 
     # Run calibration steps via CalibrationSet objects
     for mode in list(calibs.keys()):  # We loop on a copy of calibs.keys(), as we may need to remove elements from calibs while looping
@@ -336,7 +336,6 @@ def run_inner(opts, logger):
                     logger.warning(f'No calibrations for mode {im.mode}')
                     continue
                 calibration_set.extract(im, savedir=opts.flati2dir)
-                
 
         # Extract FP
         if opts.skip_fp is not True:
