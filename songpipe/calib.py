@@ -370,20 +370,21 @@ class CalibrationSet():
                 # Calculate RMS and MAD of wavelength solution and add to header
                 residuals = lines['wlc'] - lines['wll']  # WLL = listed wavelength // WLC = fitted wavelength
                 vresiduals = residuals/lines['wll'] * 299792458.
-                rms = np.sqrt(np.mean(vresiduals**2))
-                mad = np.median(np.abs(vresiduals))
+                rms = np.sqrt(np.nanmean(vresiduals**2))
+                mad = np.nanmedian(np.abs(vresiduals))
                 logger.info(f'Root Mean Square (RMS) of wavelength solution: {rms:.2f} m/s')
                 logger.info(f'Median Absolute Deviation (MAD) of wavelength solution: {mad:.2f} m/s')
                 thar.header_insert('W_RMSALL', np.round(rms, 2), 'RMS of wavelength solution (m/s)')
                 thar.header_insert('W_MADALL', np.round(mad, 2), 'MAD of wavelength solution (m/s)')
                 # Calculate MAD and count number of lines in each order
                 calc_mad = lambda x: round(np.median(np.abs(x)), 2)
+                nansafe = lambda z: z if np.isfinite(z) else str(z)  # convert nan to string before saving to FITS header
                 for i in range(thar.nord):
                     mask = lines['order']==i
                     vres = vresiduals[mask]
                     print(f'Order {i}: {len(lines[mask])} lines, MAD={calc_mad(vres)} m/s')
-                    thar.header_insert(f'W_NTH{i:03d}', len(lines[mask]), f'Order {i} number of ThAr lines')
-                    thar.header_insert(f'W_MAD{i:03d}', np.round(calc_mad(vresiduals[mask]), 2), f'Order {i} MAD of wavelength sol. (m/s)')
+                    thar.header_insert(f'W_NTH{i:03d}', nansafe(len(lines[mask])), f'Order {i} number of ThAr lines')
+                    thar.header_insert(f'W_MAD{i:03d}', nansafe(np.round(calc_mad(vresiduals[mask])), 2), f'Order {i} MAD of wavelength sol. (m/s)')
                 # Save to ech/FITS file
                 thar.save()
                 
