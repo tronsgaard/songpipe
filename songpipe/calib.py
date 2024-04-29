@@ -257,6 +257,11 @@ class CalibrationSet():
             step_science = ScienceExtraction(*self.step_args, **config)
             im, head = step_science.calibrate([image.filename], self.mask, self.data['bias'], self.data['norm_flat'])
             spec, sigma, _, column_range = step_science.extract(im, head, self.data['orders'], self.data['curvature']) #, scatter=self.data['scatter'])
+            # Apply gain
+            if image.gain_applied is False:
+                gain_factor = head['e_gain']  # e-/ADU
+                spec = gain_factor * spec
+                head = header_insert(head, 'PL_GNAPL', True)
             # TODO: Make diagnostic plot
             return self.save_extracted(image, head, spec, sigma, column_range, savedir=savedir)
             

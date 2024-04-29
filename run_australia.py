@@ -150,8 +150,8 @@ def run_inner(opts, logger):
 
             # Apply gain
             logger.info('Applying gain and merging high+low')
-            # electrons/ADU for HIGHGAIN and LOWGAIN image, respectively: [0.78, 15.64]
-            im = im.apply_gain(gain_high=0.78, gain_low=15.64)  # electrons/ADU
+            # Convert to high-gain ADUs, and apply GAIN_HIGH after extraction
+            im = im.apply_gain(gain_high=1, gain_low=GAIN_LOW/GAIN_HIGH)
             merged = im.merge_high_low()
             im.clear_data()  # Avoid filling up the memory
 
