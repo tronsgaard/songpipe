@@ -180,7 +180,7 @@ def run_inner(opts, logger):
     import pyreduce
     from pyreduce.configuration import get_configuration_for_instrument
     #from pyreduce.instruments.common import create_custom_instrument
-    from songpipe.calib import CalibrationSet
+    from songpipe.calib import CalibrationSet, NotEnoughFlatsError
     from songpipe.spectrum import SpectrumList
     from songpipe.instruments import SONGInstrument
 
@@ -203,7 +203,15 @@ def run_inner(opts, logger):
     config['orders']['min_cluster'] = 100000  # Minimum number of pixels in each cluster
     config['orders']['border_width'] = 0  # excluded rows top and bottom
     config['orders']['merge_min_threshold'] = 0.9  # don't merge any orders
-    config['norm_flat']['smooth_slitfunction'] = 2
+    
+    #config['norm_flat']['threshold'] = 3200 # Temporary - debugging!
+    config['norm_flat']['smooth_slitfunction'] = 100       # 2
+    config['norm_flat']['smooth_spectrum']     = 1e-7       # 2
+    config['norm_flat']['extraction_width']    = 0.5 
+    config['norm_flat']['oversampling']    = 5 
+    config['norm_flat']['maxiter']         = 40 
+    config['norm_flat']['swath_width']     = 600
+    config['norm_flat']['plot']            = False
 
     config['science']['extraction_width'] = 0.4
     config['science']['oversampling']     = 1
@@ -246,11 +254,16 @@ def run_inner(opts, logger):
     calibs['SLIT2'] = CalibrationSet(prep_images, opts.calibdir, config_pinhole, mask, instrument, "SLIT2")
 
     # Run calibration steps via CalibrationSet objects
-    for mode, calibration_set in calibs.items():
-        calibration_set.combine_flats(min_flat_images=MIN_FLAT_IMAGES)
+    for mode in list(calibs.keys()):  # We loop on a copy of calibs.keys(), as we may need to remove elements from calibs while looping
+        try:
+            calibration_set = calibs[mode]
+            calibration_set.combine_flats(min_flat_images=MIN_FLAT_IMAGES)
+        except NotEnoughFlatsError as e:
+            logger.exception(e)
+            logger.warning(f'Not enough flats in mode "{mode}". Continuing without this mode.')
+            del calibs[mode]
 
     for mode, calibration_set in calibs.items():
-        # TODO: Move below settings somewhere else
         calibration_set.trace_orders(ymin=120., ymax=None, target_nord=46)
         calibration_set.log_extraction_widths()
 

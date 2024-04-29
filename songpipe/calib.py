@@ -89,7 +89,7 @@ class CalibrationSet():
             flats = self.images.filter(image_type='FLAT', mode=self.mode)
             flats.list()
             if len(flats) < min_flat_images:
-                raise Exception(f'Not enough flat images. Expected {min_flat_images}, found {len(flats)}')
+                raise NotEnoughFlatsError(f'Not enough flat images. Expected {min_flat_images}, found {len(flats)}')
             flat, flat_header = step_flat.run(flats.files, None, self.mask)
         self.data['flat'] = (flat, flat_header)
         self.steps['flat'] = step_flat
@@ -481,3 +481,6 @@ class MultiFiberCalibrationSet(CalibrationSet):
             if calib.check_extracted_exists(orig_filename, savedir=savedir) is False:
                 return False
         return True
+
+class NotEnoughFlatsError(Exception):
+    pass

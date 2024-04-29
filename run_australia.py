@@ -242,7 +242,6 @@ def run_inner(opts, logger):
         calibration_set.combine_flats(min_flat_images=MIN_FLAT_IMAGES)
 
     for mode, calibration_set in calibs.items():
-        # TODO: Move below settings somewhere else
         calibration_set.trace_orders(ymin=156., ymax=3766., target_nord=69)
         calibration_set.log_extraction_widths()
 
