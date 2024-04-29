@@ -207,6 +207,8 @@ def run_inner(opts, logger):
     config['science']['extraction_width'] = 0.4
     config['wavecal_master']['extraction_width'] = 0.4
     config['wavecal_master']['collapse_function'] = 'sum'
+    config['wavecal_init']['wave_delta'] = 2  # wavelength uncertainty on the initial guess in Angstrom
+    config['wavecal_init']['medium'] = 'air'
     config['wavecal']['correlate_cols'] = 512
     config['wavecal']['threshold']      = 2500
     config['wavecal']['degree']         = [ 5, 6 ]
