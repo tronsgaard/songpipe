@@ -272,6 +272,8 @@ class CalibrationSet():
         nameout = self.get_extracted_filename(orig_filename, savedir=savedir, mode=self.mode)
         # Add mode information to header
         head = header_insert(head, 'PL_MODE', self.mode, 'Extracted mode (fiber/slit)')
+        # Specify units of the extracted spectrum
+        head = header_insert(head, 'PL_UNITS', 'electrons', 'Extracted units')
         # Add songpipe and PyReduce version
         head = header_insert(head, 'PL_VERS', songpipe_version, 'SONGPIPE version')
         head = header_insert(head, 'E_VERS', pyreduce_version, 'PyReduce version')
