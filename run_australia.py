@@ -197,7 +197,7 @@ def run_inner(opts, logger):
     instrument.info['readno'] = READNOISE
     instrument.info['dark'] = DARK_CURRENT
 
-    mask = np.zeros((master_bias.shape))  # TODO: Load an actual bad pixel mask
+    mask = np.zeros((4096, 4096))  # TODO: Load an actual bad pixel mask
 
     # Load default config
     config = get_configuration_for_instrument("pyreduce", plot=opts.plot)
