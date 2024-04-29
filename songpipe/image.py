@@ -328,13 +328,16 @@ class Image(Frame):
         else:
             return Image(header=header, data=data)
 
-    def apply_gain(self, gain_factor, inplace=False):
+    def apply_gain(self, gain_factor, inplace=False, update_header=True):
         """Apply gain factor to convert from ADUs to electrons"""
         assert self.bias_subtracted
         # assert self.dark_subtracted
         assert self.gain_applied is False
         data = self.data * gain_factor
-        header = header_insert(self._header, 'PL_GNAPL', True, 'Gain applied')
+        if update_header:
+            header = header_insert(self._header, 'PL_GNAPL', True, 'Gain applied')
+        else:
+            header = self._header
         if inplace:
             self._data, self._header = data, header
             self.filename = None
@@ -449,12 +452,12 @@ class HighLowImage(Image):
         if inplace is False:
             return HighLowImage(high_gain_image=high_gain_image, low_gain_image=low_gain_image)
 
-    def apply_gain(self, gain_high=1.0, gain_low=1.0, inplace=False):
+    def apply_gain(self, gain_high=1.0, gain_low=1.0, inplace=False, update_header=True):
         assert self.bias_subtracted
         # assert self.dark_subtracted
         assert self.gain_applied is False
-        high_gain_image = self.high_gain_image.apply_gain(gain_high, inplace=inplace)
-        low_gain_image = self.low_gain_image.apply_gain(gain_low, inplace=inplace)
+        high_gain_image = self.high_gain_image.apply_gain(gain_high, inplace=inplace, update_header=update_header)
+        low_gain_image = self.low_gain_image.apply_gain(gain_low, inplace=inplace, update_header=update_header)
         if inplace is False:
             return HighLowImage(high_gain_image=high_gain_image, low_gain_image=low_gain_image)
 
@@ -464,10 +467,11 @@ class HighLowImage(Image):
         if inplace is False:
             return HighLowImage(high_gain_image=high_gain_image, low_gain_image=low_gain_image)
 
-    def merge_high_low(self, threshold=3000):
+    def merge_high_low(self, threshold=3000, check_gain_applied=True):
         assert self.bias_subtracted
         # assert self.dark_subtracted
-        assert self.gain_applied
+        if check_gain_applied:
+            assert self.gain_applied
 
         high_gain_data = self.high_gain_image.data
         low_gain_data = self.low_gain_image.data

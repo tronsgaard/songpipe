@@ -151,8 +151,8 @@ def run_inner(opts, logger):
             # Apply gain
             logger.info('Applying gain and merging high+low')
             # Convert to high-gain ADUs, and apply GAIN_HIGH after extraction
-            im = im.apply_gain(gain_high=1, gain_low=GAIN_LOW/GAIN_HIGH)
-            merged = im.merge_high_low()
+            im = im.apply_gain(gain_high=1, gain_low=GAIN_LOW/GAIN_HIGH, update_header=False)
+            merged = im.merge_high_low(check_gain_applied=False)
             im.clear_data()  # Avoid filling up the memory
 
             # Orientation
