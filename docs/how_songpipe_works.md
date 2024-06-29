@@ -2,7 +2,7 @@
 The intention of this document is to describe in some detail how `songpipe` works, and to act as a starting point for someone trying to figure out how to make changes or implement new instruments. 
 
 ## How we access the core funcions of `PyReduce` 
- `PyReduce` is an excellent, versatile, and powerful echelle spectroscopy pipeline. The substantial development efforts that went into developing `PyReduce` and its parent, the IDL REDUCE pipeline, are highly appreciated. However, the outer layer that takes care of loading and organising the data, and running the components of the pipeline, did not fulfil our needs for SONG, which led to the development of `songpipe` as a wrapper around the core functions of `PyReduce`. It is not straightforward how to do this, as `PyReduce` was designed to run on its own. The overarching idea has been to wrap `PyReduce` without touching the code, although a few changes were necessary, resulting in this [fork of the code](https://github.com/tronsgaard/PyReduce/) that we use.
+ `PyReduce` is an excellent, versatile, and powerful echelle spectroscopy pipeline.  However, the outer layer that takes care of loading and organising the data, and running the components of the pipeline, did not fulfil our needs for SONG, which led to the development of `songpipe` as a wrapper around the core functions of `PyReduce`. It is not straightforward how to do this, as `PyReduce` was designed to run on its own. The overarching idea has been to wrap `PyReduce` without touching the code, although a few changes were necessary, resulting in this [fork of the code](https://github.com/tronsgaard/PyReduce/) that we use.
 
  `PyReduce` organises the steps if the reduction process in subclasses of the `pyreduce.reduce.Step` class, e.g. `pyreduce.reduce.OrderTracing` or `pyreduce.reduce.ScienceExtraction`. Each `Step` is instantiated with the same six positional arguments: `(instrument, mode, target, night, output_dir, order_range)`, which are mainly used to set the output directory and filename. Then the reduction step can be executed using the `.run()` method, with the appropriate arguments.
 
@@ -49,8 +49,12 @@ calibs['F12'].link_single_fiber_calibs(calibs['F1'], calibs['F2'])
 ```
 
 ### `Image` and `Spectrum`
-`songpipe.image.Image` and `songpipe.spectrum.Spectrum` objects represent images and extracted spectra, respectively. The FITS headers are cached inside the objects, and we can interrogate them in a more readable fashion via a range of properties and property methods, e.g. `.is_tenerife`, `.mode`, `.mjd_mid` etc. All properties shared between images and spectra are defined in the common superclass `songpipe.frame.Frame`.
+`songpipe.image.Image` and `songpipe.spectrum.Spectrum` objects represent images and extracted spectra, respectively. The FITS headers are cached inside the objects, and we can interrogate them in a more readable fashion via a range of properties and property methods, e.g. `.is_tenerife`, `.mode`, `.mjd_mid` etc. All properties shared between images and spectra are defined in the common superclass `songpipe.frame.Frame`. These methods need to be checked and possible adapted when FITS keywords change or new instruments are implemented.
 
 Corresponding classes for listing `Image` and `Spectrum` objects exist, named `ImageClass` and `SpectrumClass`. They, again, inherit from the common superclass named `FrameList`. The list classes offer useful methods for filtering lists of images or spectra (`.filter()`), or simply printing a readable list of frames to the console or a file (`.list()`).
 
 ### Runscript structure
+`songpipe` runs from scripts that are adapted to each instrument, currently `run_tenerife.py` and `run_australia.py`. The explicit nature of these scripts is intentional, as it makes it more clear what happens, and easier to to disable lines or adjust parameters. It does, however, lead to some code duplication, between the runscripts.
+
+The runscripts are powered by some shared functions from `songpipe.running`, which is where console arguments and the directory structure are defined, among other things. The code in the runscripts is nested within a function called `.run_inner()`, which is inside a function called `.run()`. This is so we can catch errors and log them before the program crashes.
+
