@@ -29,3 +29,7 @@ The scripts must be called with a date string (`YYYYMMDD`) as the first argument
 - Multiprocessing support
 - Automatic deletion of intermediate files (`prep/` directory)
 - Easier installation with pip (create setup.py)
+
+## Further reading
+- A more detailed description about [how `songpipe` works](docs/how_songpipe_works.md)
+- [`PyReduce` documentation](https://pyreduce-astro.readthedocs.io/en/latest/)
