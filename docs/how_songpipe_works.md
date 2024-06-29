@@ -24,7 +24,7 @@ In `songpipe` we handle the calls to `PyReduce` inside a class called `Calibrati
 ## The most important elements of `songpipe`
 
 ### How the `CalibrationSet` class works
-The `songpipe.calib.CalibrationSet` class represents a collection everything we need in order to extract a science image for a given instrument mode. Once the `CalibrationSet` is ready, we can extract science images in that mode by feeding them to the `.extract()` method of the `CalibrationSet` instance.
+The `songpipe.calib.CalibrationSet` class represents a collection of everything we need in order to extract a science image for a given instrument mode. Once the `CalibrationSet` is ready, we can extract science images in that mode by feeding them to the `.extract()` method of the appropriate `CalibrationSet` instance.
 
 When creating a `CalibrationSet` for an instrument mode, it requires a list of bias/dark-corrected images that have been cropped and rotated to the default left-right orientation. We refer to these images as "prepared" and represent them as `Image` objects (see below). From this list, the `CalibrationSet` will pick the appropriate flats and wavelength calibrations, by inquiring each `Image` about its mode. We can then execute the desired calibration steps by calling methods of the `CalibrationSet`, e.g. `.trace_orders()`.
 
@@ -35,7 +35,7 @@ calibration_set.combine_flats()
 calibration_set.trace_orders()
 calibration_set.normalize_flat()
 ```
-_Note: ThAr Calibrations are handled more explicitly (see runscripts), and then packaged back into the `CalibrationSet`._
+_Note: ThAr Calibrations are handled more explicitly than this (see runscripts), and then packaged back into the `CalibrationSet`._
 
 The `MultiFiberCalibrationSet` is a subclass of `CalibrationSet`, designed to handle the SONG-Australia setup. A `MultiFiberCalibrationSet` links to a normal `CalibrationSet` for each fiber, such that it can use the individual order trace and extract the two interlacing spectra into separate output files.
 
