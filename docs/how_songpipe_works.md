@@ -72,13 +72,41 @@ calibs['F12'].link_single_fiber_calibs(calibs['F1'], calibs['F2'])
 ```
 
 ### `Image` and `Spectrum`
-[`songpipe.image.Image`](../songpipe/image.py) and [`songpipe.spectrum.Spectrum`](../songpipe/spectrum.py) objects represent images and extracted spectra, respectively. The FITS headers are cached inside the objects, and we can interrogate them in a more readable fashion via a range of properties and property methods, e.g. `.is_tenerife`, `.mode`, `.mjd_mid` etc. All properties shared between images and spectra are defined in the common superclass [`songpipe.frame.Frame`](../songpipe/frame.py). These methods need to be checked and possible adapted when FITS keywords change or new instruments are implemented.
+[`songpipe.image.Image`](../songpipe/image.py) and [`songpipe.spectrum.Spectrum`](../songpipe/spectrum.py) objects represent images and extracted spectra, respectively. The FITS headers are cached inside the objects, and we can interrogate them via a range of properties and property methods, e.g. `.is_tenerife`, `.mode`, `.mjd_mid` etc. All properties shared between images and spectra are inherited from an abstract superclass [`songpipe.frame.Frame`](../songpipe/frame.py). These methods need to be checked and possible adapted when FITS keywords change or new instruments are implemented.
 
-Corresponding classes for listing `Image` and `Spectrum` objects exist, named `ImageClass` and `SpectrumClass`. They, again, inherit from the common superclass named `FrameList`. The list classes offer useful methods for filtering lists of images or spectra (`.filter()`), or simply printing a readable list of frames to the console or a file (`.list()`).
+- `header`
+- `object`
+- `mode` : E.g. "F1", "F2", "SLIT8", "DARK", UNKNOWN", ...
+- `type` : The value of IMAGETYP in header (e.g. "FLAT", "THAR", "STAR", ...)
+- `exptime`
+- `date_start`
+- `jd_start`
+- `mjd_start`
+- `mjd_mid`
+- `observatory`
+- `is_australia` : True if `Frame` is from SONG Australia
+- `is_tenerife` : True if `Frame` is from SONG Tenerife
+
+The `Image` class contains a number of methods for calibrating images. A special class `HighLowImage` exists to accommodate the separate high- and low-gain images from the current CMOS detector at SONG-Australia.
+
+The `Spectrum` class contains a number of property methods to access the different layers of the ECH format (`spec`, `sig`, `wave`, `cont`), the number of orders (`nord`) and the column range (`columns`).
+
+Corresponding classes for lists of `Image` and `Spectrum` objects exist, named `ImageClass` and `SpectrumClass`. They, again, inherit from the common superclass named `FrameList`. The list classes offer useful methods for filtering lists of images or spectra, or simply printing a readable list of frames to the console or a file:
+
+- `summarize()`
+- `get_exptimes()` : List all exptime values
+- `count()`
+- `append()`
+- `filter()`
+- `list()` : Prints a pretty list of frames with definable columns
+- `get_closest(mjd)` : Get the frame closest in time to `mjd`
+
+The `ImageList` class also offers methods for combining frames.
 
 ### Runscript structure
 `songpipe` runs from scripts that are adapted to each instrument, currently [`run_tenerife.py`](../run_tenerife.py) and [`run_australia.py`](../run_australia.py). The explicit nature of these scripts is intentional, as it makes it more clear what happens, how to to disable lines, or adjust parameters. It does, however, lead to some code duplication, between the runscripts.
 
-The runscripts are powered by some shared functions from [`songpipe.running`](../songpipe/running.py), which is where console arguments and the directory structure are defined, among other things. The code in the runscripts is nested within a function called `.run_inner()`, which is inside a function called `.run()`. This is so we can catch errors and log them before the program crashes.
+The runscripts are powered by some shared functions from [`songpipe.running`](../songpipe/running.py), which is where console arguments, directory structure, logging etc. are defined. The code in the runscripts is nested within a function called `.run_inner()`, which is inside a function called `.run()`. This is so we can catch errors and log them before the program crashes.
 
 ## Setting up a new instrument
+TBD
