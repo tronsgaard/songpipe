@@ -21,7 +21,7 @@ step_orders.run(flat_file, mask, bias)
 
 In `songpipe` we handle the calls to `PyReduce` inside a class called `CalibrationSet`, which is described below. We create each `Step` object and call either their `.run()` method or the functions used within `.run()`.
 
-## Key components of the `songpipe` package
+## The most important elements of `songpipe`
 
 ### How the `CalibrationSet` class works
 The `songpipe.calib.CalibrationSet` class represents a collection everything we need in order to extract a science image for a given instrument mode. Once the `CalibrationSet` is ready, we can extract science images in that mode by feeding them to the `.extract()` method of the `CalibrationSet` instance.
@@ -48,7 +48,9 @@ calibs['F12'] = MultiFiberCalibrationSet(prep_images, calibdir, config, mask, in
 calibs['F12'].link_single_fiber_calibs(calibs['F1'], calibs['F2'])
 ```
 
-### `Image` and `Spectrum` classes
-Mention also `ImageClass` and `SpectrumClass` 
+### `Image` and `Spectrum`
+`songpipe.image.Image` and `songpipe.spectrum.Spectrum` objects represent images and extracted spectra, respectively. The FITS headers are cached inside the objects, and we can interrogate them in a more readable fashion via a range of properties and property methods, e.g. `.is_tenerife`, `.mode`, `.mjd_mid` etc. All properties shared between images and spectra are defined in the common superclass `songpipe.frame.Frame`.
+
+Corresponding classes for listing `Image` and `Spectrum` objects exist, named `ImageClass` and `SpectrumClass`. They, again, inherit from the common superclass named `FrameList`. The list classes offer useful methods for filtering lists of images or spectra (`.filter()`), or simply printing a readable list of frames to the console or a file (`.list()`).
 
 ### Runscript structure
