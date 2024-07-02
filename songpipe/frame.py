@@ -424,9 +424,9 @@ class FrameList:
         res = sorted(res, key=lambda x: np.abs(x[1]))
         frame, d = res[0]
         # Log nicely
-        if d < 1/24:
+        if np.abs(d) < 1/24:
             logger.debug(f'Found frame closest in time: {24*60*d:.2f} minutes')
-        elif d < 1:
+        elif np.abs(d) < 1:
             logger.debug(f'Found frame closest in time: {24*d:.2f} hours')
         else:
             logger.debug(f'Found frame closest in time: {d:.2f} days')
