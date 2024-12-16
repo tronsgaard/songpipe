@@ -122,8 +122,4 @@ The rough structure of the `run_inner()` function goes as follows:
 
 
 ## Setting up a new instrument
-It should be noted that `songpipe` was written with the SONG telescopes in mind, not anticipating the need to support other instruments simultaneously. We therefore make some assumptions about FITS keywords that are always present at SONG. Yet, it should definitely be possible to modify and use `songpipe` for other instruments. Apart from creating a new script (based on one of the existing), and modifying the reduction steps, there are certain files that would need to be edited as well:
-
-- [frame.py](../songpipe/frame.py) : Start by making a new method in the `Frame` class, similar to `.is_australia()` and `.is_tenerife()`, then go through all the methods that read header keywords and modify to make them compatible with the new instrument, ideally without breaking compatibility. Notice that keywords starting with 'PL_' (__P__ ipe __L__ ine) are added to prepared/extracted files by the `songpipe`.
-- [image.py](../songpipe/image.py) : Write a new subclass of `Image` for the new detector, for examples see `AndorImage` (CCD with prescan/overscan) or `QHYImage` (CMOS with extra pixels that we crop). Go through the methods of `Image` to check if there are other methods that need to be modified or overwritten in the new subclass.
-- More changes may be needed - if you try this, please let us know if it worked and if you had to change other files than the ones mentioned!
+Click [here](setting_up_new_instrument.md) to read more.
