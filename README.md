@@ -31,5 +31,6 @@ The scripts must be called with a date string (`YYYYMMDD`) as the first argument
 - Easier installation with pip (create setup.py)
 
 ## Further reading
-- A more detailed description about [how `songpipe` works](docs/how_songpipe_works.md)
+- A more detailed description of [how `songpipe` works](docs/how_songpipe_works.md)
+- Instructions for [setting up a new instrument](docs/setting_up_new_instrument.md)
 - [`PyReduce` documentation](https://pyreduce-astro.readthedocs.io/en/latest/)
