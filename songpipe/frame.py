@@ -142,11 +142,16 @@ class Frame:
         
         # Get original filename
         try:
+            # First we try to get it from the FITS header
             orig_filename = basename(self.get_header_value('FILE'))
         except KeyError:
             try:
+                # Try again with a different FITS header keyword
                 orig_filename = basename(self.get_header_value('ORIGFILE'))
             except KeyError:
+                # Could not get the name from the FITS heder, so we have to infer it from the actual filename.
+                # We use a regular expression to get the original filename (without extension, e.g. "s1_2024-12-24T12-34-56")
+                # Note: This will not work for other telesopes or if SONG naming convention changes.
                 import re
                 try:
                     pattern = r'(s\d_\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}).*(\.fits.*)'
