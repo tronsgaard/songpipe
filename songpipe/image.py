@@ -236,6 +236,9 @@ class Image(Frame):
         if scale:
             bzero = self.header.get('BZERO', 0)
             bscale = self.header.get('BSCALE', 1)
+            # Convert values explicitly to NumPy scalars to avoid overflow 
+            bzero = np.min_scalar_type(bzero).type(bzero)
+            bscale = np.min_scalar_type(bscale).type(bscale)
             data = bzero + data * bscale
         # Close file
         if leave_open is False:
