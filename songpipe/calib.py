@@ -98,7 +98,7 @@ class CalibrationSet():
         self.data['flat'] = (flat, flat_header)
         self.steps['flat'] = step_flat
 
-    def trace_orders(self, ymin=-0, ymax=999999, ref_column=None, target_nord=None, overwrite_plot=False):
+    def trace_orders(self, ymin=None, ymax=None, min_width=0.4, ref_column=None, target_nord=None, overwrite_plot=False):
         """
         Trace orders in single-aperture mode
         ymin,ymax is used for trimming extreme orders, pixels refer to central column (or ref_column)
@@ -118,27 +118,38 @@ class CalibrationSet():
                 logger.info(f"Traced {len(orders)} orders in image {relpath(step_flat.savefile, self.output_dir)}.")
 
             # Trim extreme orders
+            # First, remove orders that span less than a given fraction of the detector width
+            ysize, xsize = self.images[0].shape
+            order_width = column_range[:,1] - column_range[:,0]
+            ok = order_width / xsize > min_width
+
             # Evaluate each order trace polynomial in a central column and compare with ymin, ymax
             if ref_column is None:
                 ref_column = (np.max(column_range) - np.min(column_range)) // 2
             ypos = np.hstack([np.polyval(orders[i], [ref_column]) for i in range(len(orders))])
-            ymin = ymin or 0
-            ymax = ymax or self.images[0].shape[0]
-            ok = (ypos >= ymin) & (ypos <= ymax)
-            # Verify that we found the expected number of orders between ymin and ymax
-            if target_nord is not None:
-                try:
-                    assert ((nord := np.sum(ok)) == target_nord)
-                except AssertionError:
-                    logger.warning(f'Incorrect number of orders found ({nord}). This may lead to unexpected results.')
+            if ymin is not None:
+                ok = ok & (ypos >= ymin)
+            if ymax is not None:
+                if ymax < 0:  # Support negative indexing, -1 is last pixel
+                    ymax += ysize
+                ok = ok & (ypos <= ymax)
+
             # Remove orders from (orders,column_range) tuple 
             if np.sum(ok==False) > 0:
                 logger.info(f'Trimming orders: {np.where(ok==False)[0].tolist()}')
                 orders, column_range = (orders[ok], column_range[ok])
+                
                 # override order tracing file
                 np.savez(step_orders.savefile, orders=orders, column_range=column_range)
                 logger.info("Updated order tracing file: %s", step_orders.savefile)
                 overwrite_plot = True
+
+            # Verify that we found the expected number of orders between ymin and ymax
+            if target_nord is not None:
+                try:
+                    assert ((nord := len(orders)) == target_nord)
+                except AssertionError:
+                    logger.warning(f'Unexpected number of orders found: {nord}. Expected: {target_nord}.')
 
             self.data['orders'] = (orders, column_range)
             self.steps['orders'] = step_orders
@@ -419,14 +430,14 @@ class MultiFiberCalibrationSet(CalibrationSet):
             mode = calibration_set.mode
             self.sub_mode_calibs[mode] = calibration_set
 
-    def trace_orders(self, ymin=-0, ymax=999999, target_nord=None):
+    def trace_orders(self, **kwargs):
         """Combine order trace for multi-fiber mode"""
 
         # Fetch single-fiber traces
         orders, column_range, order_modes = [], [], []
         for mode, calibs in self.sub_mode_calibs.items():
             # Get it if already traced, otherwise run trace on the other fiber
-            sub_orders, sub_column_range = calibs.trace_orders(ymin=ymin, ymax=ymax, target_nord=target_nord)  
+            sub_orders, sub_column_range = calibs.trace_orders(**kwargs)  
             orders.append(sub_orders)
             column_range.append(sub_column_range)
             order_modes += [mode]*len(sub_orders)  # Append a list of e.g. ['F1', 'F1', ..., 'F1', 'F1']
@@ -452,7 +463,7 @@ class MultiFiberCalibrationSet(CalibrationSet):
         self.order_modes = order_modes.flatten()
         logger.info(f"Loaded {len(orders)} order traces ({self.mode}) by combining modes {list(self.sub_mode_calibs.keys())}.")
         
-        self.plot_trace()
+        self.plot_trace(overwrite=True)
 
     def save_extracted(self, image, head, spec, sigma, column_range, savedir=None):
         """
