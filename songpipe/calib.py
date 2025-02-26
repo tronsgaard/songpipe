@@ -239,7 +239,7 @@ class CalibrationSet():
         else:
             logger.info(f'Writing normflat to FITS file: {fname}')
             from astropy.io.fits import writeto
-            writeto(filename=fname, data=norm, overwrite=True)
+            writeto(filename=fname, data=np.ma.filled(norm, 1), overwrite=True)
         self.data['norm_flat'] = (norm, blaze)
         self.steps['norm_flat'] = step_normflat
 
