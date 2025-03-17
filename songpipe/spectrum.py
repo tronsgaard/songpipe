@@ -48,6 +48,8 @@ class Spectrum(Frame):
         """Saves/updates ech file"""
         if filename is None:
             filename = self.filename
+        if self._ech is None:
+            self.load_data()
         logger.debug(f'Saving spectrum to {filename}')
         echelle.save(self.filename, self.header, **self._ech._data)
 
