@@ -386,7 +386,7 @@ class CalibrationSet():
                     # Calculate wavelengths at full resolution
                     from numpy.polynomial.polynomial import Polynomial, polyval2d
                     y, x = np.indices((thar.nord, thar.ncol))
-                    x = 2*x + (binsize - 1) / 2  # pixel values are defined at the centre of each pixel
+                    x = x / binsize - (binsize - 1) / 4  # pixel values are defined at the centre of each pixel
                     wave = polyval2d(x, y, coef)  # Keep the binned wavelengths?
 
                 # Add wavelength solution to Spectrum object 
