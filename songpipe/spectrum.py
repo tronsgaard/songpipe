@@ -51,7 +51,7 @@ class Spectrum(Frame):
         if self._ech is None:
             self.load_data()
         logger.debug(f'Saving spectrum to {filename}')
-        echelle.save(self.filename, self.header, **self._ech._data)
+        echelle.save(filename, self.header, **self._ech._data)
 
     def _get_ech_property(self, name):
         if self._ech is None:
