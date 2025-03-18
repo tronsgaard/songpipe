@@ -342,7 +342,7 @@ class CalibrationSet():
     def check_extracted_exists(self, orig_filename, savedir=None):
         return exists(self.get_extracted_filename(orig_filename, savedir=savedir, mode=self.mode))
     
-    def solve_wavelengths(self, linelist_path, savedir=None, skip_existing=True):
+    def solve_wavelengths(self, linelist_path, binsize=1, savedir=None, skip_existing=True):
         """Solve all ThAr spectra in self.wavelength_calibs"""
         if savedir is None:
             savedir = self.output_dir
@@ -373,9 +373,21 @@ class CalibrationSet():
                 step_args = (self.instrument, self.mode, None, None, savedir, self.order_range)
                 step_wavecal = WavelengthCalibrationFinalize(*step_args, **self.config['wavecal'])
 
-                wavecal_master = (thar.spec, thar.header)
-                linelist = LineList.load(linelist_path)
+                if binsize > 1:
+                    # Solve wavelengths in a binned spectrum
+                    wavecal_master = (thar.bin(binsize).spec, thar.header)
+                else:
+                    wavecal_master = (thar.spec, thar.header)
+                
+                linelist = LineList.load(linelist_path)  # This object gets modified by PyReduce - important to reload in each iteration!
                 wave, coef, linelist = step_wavecal.run(wavecal_master, linelist)
+
+                if binsize > 1:
+                    # Calculate wavelengths at full resolution
+                    from numpy.polynomial.polynomial import Polynomial, polyval2d
+                    y, x = np.indices((thar.nord, thar.ncol))
+                    x = 2*x + (binsize - 1) / 2  # pixel values are defined at the centre of each pixel
+                    wave = polyval2d(x, y, coef)  # Keep the binned wavelengths?
 
                 # Add wavelength solution to Spectrum object 
                 thar.wave = wave
