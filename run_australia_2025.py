@@ -21,7 +21,8 @@ TRACE_YMIN = 130  # Lower cutoff for order trace (central column pix)
 TRACE_YMAX = -1   # Upper cutoff for order trace (central column pix), -1 means last pixel
 TRACE_MIN_WIDTH = 0.4  # Minimum width of each order trace relative to image
 TRACE_NORD = 50   # Expected number of orders
-LINELIST_PATH = join(dirname(__file__), 'linelists/test_thar_fib2_2D.npz')
+WAVESOL_BINSIZE = 2  # Bin the spectrum during wavelength solution
+LINELIST_PATH = join(dirname(__file__), 'linelists/s3_qhy_1_bin2.npz')
 
 # Select image class (single channel or high/low gain)
 IMAGE_CLASS = QHYImage  # For Mt. Kent
@@ -274,7 +275,7 @@ def run_inner(opts, logger):
         # Store list of extracted ThAr spectra in calibration set
         calibration_set.wavelength_calibs += thar_spectra.filter(mode=mode)
         # Solve wavelengths for each extracted spectrum
-        calibration_set.solve_wavelengths(LINELIST_PATH, savedir=opts.thardir, skip_existing=True)
+        calibration_set.solve_wavelengths(LINELIST_PATH, binsize=2, savedir=opts.thardir, skip_existing=True)
 
     # Add fallback ThAr calibs from different nights
     for d in opts.add_thars:
