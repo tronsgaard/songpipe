@@ -1,6 +1,7 @@
 """Class definitions for extracted spectra"""
 from glob import glob
 from tqdm import tqdm
+import numpy as np
 import astropy.io.fits as fits
 
 from pyreduce import echelle
@@ -52,6 +53,36 @@ class Spectrum(Frame):
             self.load_data()
         logger.debug(f'Saving spectrum to {filename}')
         echelle.save(filename, self.header, **self._ech._data)
+
+    def bin(self, binsize):
+        """Create a binned spectrum"""
+        ncol_new = self.ncol // binsize  # integer division
+        # Make a binning function that reshapes the spectrum to extra dimension and then collapses the array
+        binfunc = lambda x: np.sum(np.reshape(x[:,:(ncol_new * binsize)], (self.nord, ncol_new, binsize)), axis=2)
+        
+        # Initialise new spectrum
+        spec = binfunc(self.spec)
+        res = Spectrum(header=self.header, ech=echelle.Echelle(data=dict(spec=spec)))
+        if self.sig is not None:
+            res.sig = np.sqrt(binfunc(self.sig**2))
+        if self.cont is not None:
+            res.cont = binfunc(self.cont)
+        if self.mask is not None: 
+            res._set_ech_property('mask', binfunc(self.mask) > 0)
+
+        # Update columm ranges
+        if self.columns is not None:
+            columns = self.columns // binsize
+            columns[columns > ncol_new - 1] = ncol_new - 1
+            res._set_ech_property('columns', columns)
+
+        # Update wavelengths
+        if self.wave is not None:
+            res.wave = binfunc(self.wave) / binsize
+        
+        # TODO: Add something to header
+
+        return res
 
     def _get_ech_property(self, name):
         if self._ech is None:
