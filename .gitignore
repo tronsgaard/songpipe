@@ -1,8 +1,3 @@
 .vscode/
-.idea/
-.idea-old/
 .ipynb_checkpoints/
 __pycache__/
-.gitignore
-fgj/
-misc (not in git)/
