@@ -442,7 +442,7 @@ class MultiFiberCalibrationSet(CalibrationSet):
             mode = calibration_set.mode
             self.sub_mode_calibs[mode] = calibration_set
 
-    def trace_orders(self, **kwargs):
+    def trace_orders(self, overwrite_plot=False, **kwargs):
         """Combine order trace for multi-fiber mode"""
 
         # Fetch single-fiber traces
@@ -475,7 +475,7 @@ class MultiFiberCalibrationSet(CalibrationSet):
         self.order_modes = order_modes.flatten()
         logger.info(f"Loaded {len(orders)} order traces ({self.mode}) by combining modes {list(self.sub_mode_calibs.keys())}.")
         
-        self.plot_trace(overwrite=True)
+        self.plot_trace(overwrite=overwrite_plot)
 
     def save_extracted(self, image, head, spec, sigma, column_range, savedir=None):
         """
