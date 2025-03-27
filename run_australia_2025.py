@@ -70,6 +70,11 @@ def run_inner(opts, logger):
     images = songpipe.running.load_images(filemask, IMAGE_CLASS, ignore_list=ignore_list, outdir=opts.outdir, 
                                           reload_cache=opts.reload_cache, silent=opts.silent)
     
+    # Check site and date before proceeding
+    for im in images:
+        assert im.is_australia == True
+        assert im.mjd_start > 60723.0  # 2025-02-17 approximate installation date for QHY detector
+
     # Ignore darks
     if opts.ignore_darks:
         images = images.filter(image_type_exclude=['BIAS', 'DARK'])
