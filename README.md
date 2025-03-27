@@ -1,7 +1,7 @@
 # SONG pipeline
 `songpipe` is the new default extraction pipeline for [SONG](https://phys.au.dk/song/) (Stellar Observations Network Group), currently supporting the Tenerife and Australia nodes. 
 
-`songpipe` runs in Python (version 3.8 or higher) and works as a wrapper around the core routines of [PyReduce](https://github.com/AWehrhahn/PyReduce/) ([Piskunov & Valenti (2002)](https://doi.org/10.1051/0004-6361:20020175), [Piskunov, Wehrhahn & Marquart (2020)](https://doi.org/10.1051/0004-6361/202038293)). As PyReduce is not being actively maintained at the moment (April 2024), and some adjustments of the code were necessary, `songpipe` uses a fork of the PyReduce repository, located [here](https://github.com/tronsgaard/PyReduce).
+`songpipe` runs in Python (version 3.8 or higher) and works as a wrapper around the core routines of [PyReduce](https://github.com/ivh/PyReduce/) ([Piskunov & Valenti (2002)](https://doi.org/10.1051/0004-6361:20020175), [Piskunov, Wehrhahn & Marquart (2020)](https://doi.org/10.1051/0004-6361/202038293)). As PyReduce was not being actively maintained for a period, and some adjustments of the code were necessary, `songpipe` uses a fork of the PyReduce repository, located [here](https://github.com/tronsgaard/PyReduce). Most of our changes have since been implemented in the official `PyReduce` repository, except some changes in header keywords that are difficult to resolve without breaking compatibility (see [pull request](https://github.com/ivh/PyReduce/pull/32)).
 
 `songpipe` is still being developed (see below).
 
